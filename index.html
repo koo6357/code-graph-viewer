@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Code Graph Viewer</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+      #app { width: 100%; height: 100%; display: flex; flex-direction: column; }
+
+      /* Top bar - removed, using native menu */
+
+      /* Main area */
+      #main { flex: 1; display: flex; overflow: hidden; }
+
+      /* Sidebar */
+      #sidebar { width: 220px; background: #16213e; border-right: 1px solid #2a2a4a; display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; }
+      #sidebar-title { padding: 10px 14px; font-size: 12px; color: #505070; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #2a2a4a; }
+      #category-list { flex: 1; overflow-y: auto; padding: 4px 0; }
+      .cat-item { padding: 7px 14px; cursor: pointer; font-size: 13px; color: #b0b0d0; display: flex; justify-content: space-between; align-items: center; }
+      .cat-item:hover { background: #1a3a5c; }
+      .cat-item.active { background: #0f3460; color: #fff; }
+      .cat-count { font-size: 11px; color: #505070; }
+      .cat-group { padding: 8px 14px 4px; font-size: 11px; color: #404060; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }      #stats { padding: 10px 14px; border-top: 1px solid #2a2a4a; font-size: 11px; color: #505070; }
+
+      /* Canvas */
+      #canvas-container { flex: 1; position: relative; }
+      #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; color: #505070; }
+
+      /* Welcome screen */
+      #welcome { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+      #welcome h2 { font-size: 18px; color: #707090; margin-bottom: 20px; font-weight: 500; }
+      #welcome-recents { text-align: left; }
+      .welcome-item { padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; color: #a0a0c0; }
+      .welcome-item:hover { background: #1a3a5c; color: #fff; }
+      .welcome-item .hint { font-size: 11px; color: #505070; display: block; margin-top: 2px; }
+
+      /* Search bar */
+      #search-bar { display: none; position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 50; background: #16213e; border: 1px solid #3a3a6a; border-radius: 8px; padding: 6px 10px; display: none; align-items: center; gap: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+      #search-bar.visible { display: flex; }
+      #search-input { background: #111128; border: 1px solid #2a2a4a; border-radius: 4px; color: #e0e0e0; padding: 5px 10px; font-size: 13px; width: 260px; outline: none; }
+      #search-input:focus { border-color: #3a5a8a; }
+      #search-info { font-size: 12px; color: #707090; white-space: nowrap; min-width: 60px; text-align: center; }
+      .search-nav-btn { background: none; border: 1px solid #2a2a4a; border-radius: 4px; color: #8080a0; cursor: pointer; font-size: 12px; padding: 3px 8px; }
+      .search-nav-btn:hover { background: #1a3a5c; color: #c0c0e0; }
+      #search-close-btn { background: none; border: none; color: #606080; cursor: pointer; font-size: 15px; padding: 0 4px; }
+
+      /* Settings panel */
+      #settings-toggle { position: absolute; top: 12px; right: 12px; z-index: 20; background: #16213e; border: 1px solid #2a2a4a; border-radius: 6px; padding: 6px 10px; color: #8080a0; cursor: pointer; font-size: 12px; }
+      #settings-toggle:hover { background: #1a3a5c; color: #c0c0e0; }
+      #settings-panel { display: none; position: absolute; top: 44px; right: 12px; z-index: 20; background: #16213e; border: 1px solid #2a2a4a; border-radius: 8px; padding: 14px; width: 240px; cursor: default; }
+      #settings-panel.visible { display: block; }
+      #settings-panel .drag-handle { cursor: grab; padding: 0 0 8px; font-size: 11px; color: #505070; user-select: none; }
+      #settings-panel .drag-handle:active { cursor: grabbing; }
+      #settings-panel.visible { display: block; }
+      .setting-row { margin-bottom: 12px; }
+      .setting-label { font-size: 11px; color: #707090; margin-bottom: 4px; display: flex; justify-content: space-between; }
+      .setting-value { color: #a0a0c0; }
+      .setting-row input[type="range"] { width: 100%; accent-color: #3a5a8a; }
+
+      .switch { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+      .switch input { opacity: 0; width: 0; height: 0; }
+      .switch .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #2a2a4a; border-radius: 10px; transition: background 0.2s; }
+      .switch .slider:before { content: ""; position: absolute; height: 16px; width: 16px; left: 2px; bottom: 2px; background: #707090; border-radius: 50%; transition: transform 0.2s, background 0.2s; }
+      .switch input:checked + .slider { background: #1a5a3a; }
+      .switch input:checked + .slider:before { transform: translateX(16px); background: #a0e0c0; }
+
+      /* Info panel */
+      #info-panel { display: none; position: absolute; top: 12px; right: 12px; width: 320px; max-height: calc(100% - 24px); background: #16213e; border: 1px solid #2a2a4a; border-radius: 8px; padding: 16px; overflow-y: auto; z-index: 30; cursor: default; }
+      #info-panel .drag-handle { cursor: grab; padding: 0 0 8px; font-size: 11px; color: #505070; user-select: none; }
+      #info-panel .drag-handle:active { cursor: grabbing; }
+      #info-panel.visible { display: block; }
+      #info-panel h3 { font-size: 14px; margin-bottom: 8px; color: #fff; }
+      .kind-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-bottom: 8px; color: #fff; }
+      #info-panel .refs { font-size: 12px; color: #a0a0c0; }
+      #info-panel .refs li { padding: 3px 0; cursor: pointer; }
+      #info-panel .refs li:hover { color: #fff; }
+      #info-close { position: absolute; top: 8px; right: 8px; background: none; border: none; color: #707090; cursor: pointer; font-size: 16px; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="main">
+        <div id="sidebar">
+          <div id="sidebar-title">Explorer</div>
+          <div id="category-list"></div>
+          <div id="stats"></div>
+        </div>
+        <div id="canvas-container">
+          <div id="search-bar">
+            <input id="search-input" type="text" placeholder="Search nodes..." />
+            <span id="search-info"></span>
+            <button class="search-nav-btn" id="search-prev">▲</button>
+            <button class="search-nav-btn" id="search-next">▼</button>
+            <button id="search-close-btn">&times;</button>
+          </div>
+          <button id="settings-toggle">⚙</button>
+          <div id="settings-panel">
+            <div class="drag-handle">⋮⋮ Settings</div>
+            <div class="setting-row">
+              <div class="setting-label">Scale <span class="setting-value" id="val-scale">1.00</span></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-label">Visible <span class="setting-value" id="val-visible">0 / 0</span> · Labels <span class="setting-value" id="val-labels">0</span></div>
+            </div>
+            <div style="height:1px;background:#2a2a4a;margin:8px 0"></div>
+            <div class="setting-row">
+              <div class="setting-label">Horizontal Gap <span class="setting-value" id="val-hgap">750</span></div>
+              <input type="range" id="slider-hgap" min="100" max="2000" value="750" />
+            </div>
+            <div class="setting-row">
+              <div class="setting-label">Vertical Gap <span class="setting-value" id="val-vgap">65</span></div>
+              <input type="range" id="slider-vgap" min="20" max="120" value="65" />
+            </div>
+            <div class="setting-row">
+              <div class="setting-label">Node Size <span class="setting-value" id="val-nsize">1.0</span></div>
+              <input type="range" id="slider-nsize" min="0.5" max="3" value="1" step="0.1" />
+            </div>
+            <div class="setting-row">
+              <div class="setting-label">Font Size <span class="setting-value" id="val-fsize">1.8</span></div>
+              <input type="range" id="slider-fsize" min="0.5" max="3" value="1.8" step="0.1" />
+            </div>
+            <div style="height:1px;background:#2a2a4a;margin:8px 0"></div>
+            <div class="setting-row" style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:11px;color:#707090;">Edges on Zoom</span>
+              <label class="switch"><input type="checkbox" id="toggle-edges" checked /><span class="slider"></span></label>
+            </div>
+            <div style="height:1px;background:#2a2a4a;margin:8px 0"></div>
+            <button id="save-settings" style="width:100%;padding:6px;background:#1a5a3a;border:1px solid #2a6a4a;border-radius:4px;color:#a0e0c0;cursor:pointer;font-size:12px;font-weight:600;">💾 Save</button>
+            <button id="copy-settings" style="width:100%;padding:6px;background:#0f3460;border:1px solid #2a2a4a;border-radius:4px;color:#a0a0c0;cursor:pointer;font-size:11px;margin-top:6px;">📋 Copy</button>
+          </div>
+          <div id="loading" style="display:none">Scanning...</div>
+        <div id="welcome">
+          <h2>Code Graph Viewer</h2>
+          <div id="welcome-recents"></div>
+        </div>
+          <div id="info-panel">
+            <div class="drag-handle">⋮⋮ Info</div>
+            <button id="info-close">&times;</button>
+            <h3 id="info-name"></h3>
+            <div id="info-kind" class="kind-badge"></div>
+            <div id="info-path" style="font-size: 11px; color: #707090; margin-bottom: 8px;"></div>
+            <div id="info-refs" class="refs"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
