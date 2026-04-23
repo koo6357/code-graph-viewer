@@ -918,10 +918,17 @@ function highlightConnections(nodeId: string) {
     if (e.source === nodeId) connected.add(e.target);
     if (e.target === nodeId) connected.add(e.source);
   });
-  // Also add tree parent and all descendants
+  // Also add tree parent chain (up to root) and all descendants
   const vn = visNodes.get(nodeId);
   if (vn) {
-    if (vn.parentId) connected.add(vn.parentId);
+    // Walk up to root
+    let parentId = vn.parentId;
+    while (parentId) {
+      connected.add(parentId);
+      const p = visNodes.get(parentId);
+      parentId = p?.parentId || null;
+    }
+    // Walk down all descendants
     const collectChildren = (id: string) => {
       const node = visNodes.get(id);
       if (!node) return;
