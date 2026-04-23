@@ -1380,7 +1380,7 @@ function showSearchResultsList(results: VisNode[], activeIdx: number) {
   list.innerHTML = "";
   list.classList.add("visible");
 
-  results.slice(0, 50).forEach((vn, i) => { // max 50 results
+  results.forEach((vn, i) => {
     const item = document.createElement("div");
     item.className = "search-result-item" + (i === activeIdx ? " active" : "");
     item.innerHTML = `<span class="search-result-name">${vn.name}</span><span class="search-result-path">${vn.id}</span>`;
