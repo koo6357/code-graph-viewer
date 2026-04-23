@@ -1113,10 +1113,16 @@ let graphBounds = { minX: 0, minY: 0, maxX: 1, maxY: 1 };
 function initMinimap() {
   minimapCanvas = document.getElementById("minimap-canvas") as HTMLCanvasElement;
   minimapCtx = minimapCanvas.getContext("2d");
-  minimapCanvas.width = 180;
-  minimapCanvas.height = 120;
 
   const container = document.getElementById("minimap")!;
+  const resizeMinimap = () => {
+    minimapCanvas!.width = container.clientWidth;
+    minimapCanvas!.height = container.clientHeight;
+    updateMinimap();
+  };
+  resizeMinimap();
+  window.addEventListener("resize", resizeMinimap);
+
   container.addEventListener("pointerdown", onMinimapClick);
   container.addEventListener("pointermove", (e) => {
     if (e.buttons === 1) onMinimapClick(e);
