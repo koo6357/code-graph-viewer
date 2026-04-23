@@ -158,6 +158,7 @@ async function init() {
   setupMenus();
   setupSettings();
   setupSearch();
+  initMinimap();
   await tryAutoOpen();
 }
 
@@ -255,6 +256,7 @@ function applyTransform() {
   world.x = offX;
   world.y = offY;
   world.scale.set(scale);
+  updateMinimap();
 }
 
 let visibilityTimer: ReturnType<typeof setTimeout> | null = null;
@@ -734,9 +736,7 @@ function renderFolderTree(catKey: string, nodes: GraphNode[]) {
   redrawEdges();
   centerView();
   updateVisibility();
-  // Apply current zone visual settings to newly created nodes
-  const zi = getZoneIndex(scale);
-  currentZoneIndex = zi;
+  updateMinimap();
   visNodes.forEach((vn) => {
     vn.circle.scale.set(nodeSizeMultiplier);
     vn.label.parent.scale.set(fontSizeMultiplier);
@@ -1103,6 +1103,85 @@ function rerender() {
     applyTransform();
     skipCenterView = false;
   }
+}
+
+// --- Minimap ---
+let minimapCanvas: HTMLCanvasElement | null = null;
+let minimapCtx: CanvasRenderingContext2D | null = null;
+let graphBounds = { minX: 0, minY: 0, maxX: 1, maxY: 1 };
+
+function initMinimap() {
+  minimapCanvas = document.getElementById("minimap-canvas") as HTMLCanvasElement;
+  minimapCtx = minimapCanvas.getContext("2d");
+  minimapCanvas.width = 180;
+  minimapCanvas.height = 120;
+
+  const container = document.getElementById("minimap")!;
+  container.addEventListener("pointerdown", onMinimapClick);
+  container.addEventListener("pointermove", (e) => {
+    if (e.buttons === 1) onMinimapClick(e);
+  });
+}
+
+function onMinimapClick(e: PointerEvent) {
+  if (!app || !minimapCanvas) return;
+  const rect = minimapCanvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) / rect.width;
+  const my = (e.clientY - rect.top) / rect.height;
+
+  const gw = graphBounds.maxX - graphBounds.minX || 1;
+  const gh = graphBounds.maxY - graphBounds.minY || 1;
+
+  // World coordinate that should be at screen center
+  const worldX = graphBounds.minX + mx * gw;
+  const worldY = graphBounds.minY + my * gh;
+
+  offX = app.screen.width / 2 - worldX * scale;
+  offY = app.screen.height / 2 - worldY * scale;
+  applyTransform();
+}
+
+function updateMinimap() {
+  if (!minimapCtx || !minimapCanvas || visNodes.size === 0 || !app) return;
+
+  const ctx = minimapCtx;
+  const w = minimapCanvas.width;
+  const h = minimapCanvas.height;
+
+  // Compute graph bounds
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  visNodes.forEach((vn) => {
+    minX = Math.min(minX, vn.x);
+    minY = Math.min(minY, vn.y);
+    maxX = Math.max(maxX, vn.x);
+    maxY = Math.max(maxY, vn.y);
+  });
+  const pad = 50;
+  minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+  graphBounds = { minX, minY, maxX, maxY };
+
+  const gw = maxX - minX || 1;
+  const gh = maxY - minY || 1;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Draw nodes as dots
+  visNodes.forEach((vn) => {
+    const px = ((vn.x - minX) / gw) * w;
+    const py = ((vn.y - minY) / gh) * h;
+    ctx.fillStyle = vn.isDir ? "#505070" : "#3a86c8";
+    ctx.fillRect(px, py, 1.5, 1.5);
+  });
+
+  // Draw viewport rectangle
+  const vpLeft = (-offX / scale - minX) / gw * w;
+  const vpTop = (-offY / scale - minY) / gh * h;
+  const vpW = (app.screen.width / scale) / gw * w;
+  const vpH = (app.screen.height / scale) / gh * h;
+
+  ctx.strokeStyle = "rgba(255,255,255,0.5)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(vpLeft, vpTop, vpW, vpH);
 }
 
 // --- Search ---

@@ -59,6 +59,8 @@
       .setting-value { color: #a0a0c0; }
       .setting-row input[type="range"] { width: 100%; accent-color: #3a5a8a; }
 
+      #minimap { position: absolute; bottom: 12px; right: 12px; width: 180px; height: 120px; background: #0a0a1a; border: 1px solid #2a2a4a; border-radius: 6px; z-index: 15; cursor: pointer; overflow: hidden; }
+      #minimap canvas { width: 100%; height: 100%; }
       .switch { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
       .switch input { opacity: 0; width: 0; height: 0; }
       .switch .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #2a2a4a; border-radius: 10px; transition: background 0.2s; }
@@ -135,6 +137,7 @@
           <h2>Code Graph Viewer</h2>
           <div id="welcome-recents"></div>
         </div>
+          <div id="minimap"><canvas id="minimap-canvas"></canvas></div>
           <div id="info-panel">
             <div class="drag-handle">⋮⋮ Info</div>
             <button id="info-close">&times;</button>
