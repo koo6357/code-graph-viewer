@@ -1166,15 +1166,20 @@ function setupSearch() {
     }
 
     searchResults = [];
+    const isPathSearch = query.includes("/") || query.includes(".ts");
     visNodes.forEach((vn) => {
-      if (vn.name.toLowerCase().includes(query)) {
+      const target = isPathSearch ? vn.id.toLowerCase() : vn.name.toLowerCase();
+      if (target.includes(query)) {
         searchResults.push(vn);
       }
     });
 
-    // If nothing rendered yet, search all graph nodes and show in sidebar
+    // If nothing rendered yet, search all graph nodes
     if (searchResults.length === 0 && graph) {
-      const matches = graph.nodes.filter((n) => n.name.toLowerCase().includes(query));
+      const matches = graph.nodes.filter((n) => {
+        const target = isPathSearch ? n.id.toLowerCase() : n.name.toLowerCase();
+        return target.includes(query);
+      });
       info.textContent = matches.length > 0 ? `${matches.length} in project (select a category)` : "No results";
       searchIndex = -1;
       clearSearchHighlight();
