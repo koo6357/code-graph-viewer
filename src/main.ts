@@ -1302,11 +1302,17 @@ function setupSearch() {
       searchIndex = 0;
       info.textContent = `1 / ${searchResults.length}`;
       applySearchHighlight();
-      focusSearchResult(true); // first time: zoom
+      if (isPathSearch) {
+        showSearchResultsList(searchResults, 0);
+      } else {
+        hideSearchResultsList();
+      }
+      focusSearchResult(true);
     } else {
       searchIndex = -1;
       info.textContent = "No results";
       clearSearchHighlight();
+      hideSearchResultsList();
     }
     }, 150); // debounce 150ms
   });
@@ -1321,6 +1327,7 @@ function navigateSearch(dir: number) {
   searchIndex = (searchIndex + dir + searchResults.length) % searchResults.length;
   document.getElementById("search-info")!.textContent = `${searchIndex + 1} / ${searchResults.length}`;
   applySearchHighlight();
+  updateSearchListActive(searchIndex);
   focusSearchResult(false); // navigate: keep zoom
 }
 
@@ -1365,6 +1372,40 @@ function closeSearch() {
   searchIndex = -1;
   document.getElementById("search-info")!.textContent = "";
   clearSearchHighlight();
+  hideSearchResultsList();
+}
+
+function showSearchResultsList(results: VisNode[], activeIdx: number) {
+  const list = document.getElementById("search-results-list")!;
+  list.innerHTML = "";
+  list.classList.add("visible");
+
+  results.slice(0, 50).forEach((vn, i) => { // max 50 results
+    const item = document.createElement("div");
+    item.className = "search-result-item" + (i === activeIdx ? " active" : "");
+    item.innerHTML = `<span class="search-result-name">${vn.name}</span><span class="search-result-path">${vn.id}</span>`;
+    item.addEventListener("click", () => {
+      searchIndex = i;
+      document.getElementById("search-info")!.textContent = `${i + 1} / ${results.length}`;
+      applySearchHighlight();
+      updateSearchListActive(i);
+      focusSearchResult(true);
+      if (vn.node) onNodeClick(vn.node);
+    });
+    list.appendChild(item);
+  });
+}
+
+function hideSearchResultsList() {
+  document.getElementById("search-results-list")!.classList.remove("visible");
+}
+
+function updateSearchListActive(idx: number) {
+  const items = document.querySelectorAll(".search-result-item");
+  items.forEach((el, i) => {
+    el.classList.toggle("active", i === idx);
+    if (i === idx) el.scrollIntoView({ block: "nearest" });
+  });
 }
 
 // --- Start ---
