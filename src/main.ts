@@ -846,6 +846,7 @@ function clearHighlight() {
   visNodes.forEach((vn) => {
     vn.circle.alpha = 1;
     vn.label.alpha = 1;
+    (vn.label.style as TextStyle).fill = vn.isDir ? 0x8080a0 : 0xb0b0d0;
   });
   redrawEdges();
 }
@@ -914,8 +915,31 @@ function highlightConnections(nodeId: string) {
     const dim = connected.has(id) ? 1 : 0.5;
     vn.circle.alpha = dim;
     vn.label.alpha = dim;
+    if (connected.has(id)) {
+      (vn.label.style as TextStyle).fill = 0xffffff;
+    }
     // container.alpha stays 1 so label background remains opaque
   });
+
+  // Redraw tree edges with highlight
+  if (treeEdgeGfx) {
+    treeEdgeGfx.clear();
+    visNodes.forEach((vn) => {
+      if (!vn.parentId) return;
+      const parent = visNodes.get(vn.parentId);
+      if (!parent) return;
+      const pSize = KIND_SIZES[parent.kind] || 5;
+      const startX = parent.x + pSize + 2;
+      const startY = parent.y;
+      const endX = vn.x - (KIND_SIZES[vn.kind] || 5) - 2;
+      const endY = vn.y;
+      const cpOffset = (endX - startX) * 0.5;
+      treeEdgeGfx!.moveTo(startX, startY);
+      treeEdgeGfx!.bezierCurveTo(startX + cpOffset, startY, endX - cpOffset, endY, endX, endY);
+      const isConn = connected.has(vn.id) && connected.has(vn.parentId);
+      treeEdgeGfx!.stroke({ width: isConn ? 1.5 : 1, color: isConn ? 0x5BA0D0 : 0xffffff, alpha: isConn ? 0.6 : 0.1 });
+    });
+  }
 
   // Redraw import edges with highlight
   importEdgeGfx.clear();
@@ -938,9 +962,9 @@ function highlightConnections(nodeId: string) {
     importEdgeGfx!.moveTo(from.x, from.y);
     importEdgeGfx!.quadraticCurveTo(cpx, cpy, to.x, to.y);
     importEdgeGfx!.stroke({
-      width: isHL ? 2 : 0.4,
-      color: isHL ? 0xe94560 : 0x3a3a5a,
-      alpha: isHL ? 0.9 : 0.03,
+      width: isHL ? 1.5 : 0.4,
+      color: isHL ? 0x5BA0D0 : 0x3a3a5a,
+      alpha: isHL ? 0.7 : 0.03,
     });
   });
 
