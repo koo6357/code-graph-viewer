@@ -82,11 +82,16 @@ let scale = 1;
 let offX = 0;
 let offY = 0;
 
-// Canvas pan
-let pointerDown = false;
-let pointerStartX = 0;
-let pointerStartY = 0;
-let pointerMoved = false;
+// Canvas drag
+let canvasDragging = false;
+let canvasStartX = 0;
+let canvasStartY = 0;
+
+// Node drag
+let dragNode: VisNode | null = null;
+let dragOffsetX = 0;
+let dragOffsetY = 0;
+let didDragNode = false;
 
 // --- Init ---
 async function init() {
@@ -108,34 +113,45 @@ async function init() {
   const canvas = pixiApp.canvas as HTMLCanvasElement;
 
   canvas.addEventListener("pointerdown", (e) => {
-    pointerDown = true;
-    pointerMoved = false;
-    pointerStartX = e.clientX;
-    pointerStartY = e.clientY;
+    if (dragNode) return;
+    canvasDragging = true;
+    canvasStartX = e.clientX;
+    canvasStartY = e.clientY;
   });
 
   window.addEventListener("pointermove", (e) => {
-    if (!pointerDown) return;
-    const dx = e.clientX - pointerStartX;
-    const dy = e.clientY - pointerStartY;
-    if (!pointerMoved && Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
-      pointerMoved = true;
-      canvas.style.cursor = "grabbing";
+    if (dragNode) {
+      // Node drag
+      const worldX = (e.clientX - offX) / scale;
+      const worldY = (e.clientY - offY) / scale;
+      dragNode.x = worldX - dragOffsetX;
+      dragNode.y = worldY - dragOffsetY;
+      dragNode.container.x = dragNode.x;
+      dragNode.container.y = dragNode.y;
+      didDragNode = true;
+      redrawEdges();
+      return;
     }
-    if (pointerMoved) {
-      offX += e.movementX;
-      offY += e.movementY;
+    if (canvasDragging) {
+      offX += e.clientX - canvasStartX;
+      offY += e.clientY - canvasStartY;
+      canvasStartX = e.clientX;
+      canvasStartY = e.clientY;
       applyTransform();
     }
   });
 
   window.addEventListener("pointerup", () => {
-    if (!pointerMoved && pointerDown) {
-      document.getElementById("info-panel")!.classList.remove("visible");
-      clearHighlight();
+    if (dragNode && !didDragNode) {
+      // Was a click, not drag
+      if (dragNode.node) onNodeClick(dragNode.node);
     }
-    pointerDown = false;
-    canvas.style.cursor = "default";
+    dragNode = null;
+    didDragNode = false;
+    if (canvasDragging) {
+      canvasDragging = false;
+      canvas.style.cursor = "default";
+    }
   });
 
   canvas.addEventListener("wheel", (e) => {
@@ -652,18 +668,27 @@ function renderFolderTree(catKey: string, nodes: GraphNode[]) {
 
     circle.on("pointerdown", (e) => {
       e.stopPropagation();
+      const vn = visNodes.get(dn.id);
+      if (vn) {
+        dragNode = vn;
+        didDragNode = false;
+        const worldX = (e.clientX - offX) / scale;
+        const worldY = (e.clientY - offY) / scale;
+        dragOffsetX = worldX - vn.x;
+        dragOffsetY = worldY - vn.y;
+      }
     });
     circle.on("pointerup", () => {
-      if (!pointerMoved && dn.node) onNodeClick(dn.node);
+      if (!didDragNode && dn.node) onNodeClick(dn.node);
     });
 
     circle.on("pointerover", () => {
       const vn = visNodes.get(dn.id);
-      if (vn) highlightHover(vn.id);
+      if (vn && !dragNode) highlightHover(vn.id);
     });
 
     circle.on("pointerout", () => {
-      clearHover();
+      if (!dragNode) clearHover();
     });
 
     cont.addChild(circle);
@@ -684,16 +709,16 @@ function renderFolderTree(catKey: string, nodes: GraphNode[]) {
     label.cursor = "pointer";
     label.on("pointerover", () => {
       const vn = visNodes.get(dn.id);
-      if (vn) highlightHover(vn.id);
+      if (vn && !dragNode) highlightHover(vn.id);
     });
     label.on("pointerout", () => {
-      clearHover();
+      if (!dragNode) clearHover();
     });
     label.on("pointerdown", (e) => {
       e.stopPropagation();
     });
     label.on("pointerup", () => {
-      if (!pointerMoved && dn.node) onNodeClick(dn.node);
+      if (!didDragNode && dn.node) onNodeClick(dn.node);
     });
     cont.addChild(label);
 
