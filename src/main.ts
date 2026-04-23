@@ -87,7 +87,6 @@ let canvasDragging = false;
 let canvasStartX = 0;
 let canvasStartY = 0;
 
-// (node drag removed)
 
 // --- Init ---
 async function init() {
@@ -271,29 +270,20 @@ function updateVisibilityNow() {
   const total = visNodes.size;
   let visibleCount = 0;
   let labelsShown = 0;
-
-  // Scale-based font override
   const effectiveFontSize = scale < 0.25 ? 2.5 : fontSizeMultiplier;
 
-  // Update scale display
   const scaleEl = document.getElementById("val-scale");
   if (scaleEl) scaleEl.textContent = scale.toFixed(2);
 
-  // All nodes always visible
   visNodes.forEach((vn) => {
     vn.container.visible = true;
-    visibleCount++;
-  });
-
-  // Labels always visible
-  visNodes.forEach((vn) => {
     vn.label.visible = true;
-    labelsShown++;
     vn.label.parent.scale.set(effectiveFontSize);
     vn.circle.scale.set(nodeSizeMultiplier);
+    visibleCount++;
+    labelsShown++;
   });
 
-  // Update stats
   const visEl = document.getElementById("val-visible");
   if (visEl) visEl.textContent = `${visibleCount} / ${total}`;
   const labelsEl = document.getElementById("val-labels");
@@ -571,8 +561,7 @@ let H_GAP = 750;
 let V_GAP = 65;
 let nodeSizeMultiplier = 1;
 let fontSizeMultiplier = 1.8;
-let depthOverride = 99; // manual depth cap
-let showEdges = true;
+let depthOverride = 99;
 let edgesOnZoom = true;
 let edgeDebounce: ReturnType<typeof setTimeout> | null = null;
 
@@ -742,9 +731,19 @@ function renderFolderTree(catKey: string, nodes: GraphNode[]) {
     vn.circle.scale.set(nodeSizeMultiplier);
     vn.label.parent.scale.set(fontSizeMultiplier);
   });
-  // Update zone display
-  const zoneEl = document.getElementById("val-zone");
-  if (zoneEl) zoneEl.textContent = ZONES[zi]?.name || "-";
+}
+
+function drawTreeEdge(vn: VisNode, parent: VisNode, color: number, alpha: number, width: number) {
+  if (!treeEdgeGfx) return;
+  const pSize = KIND_SIZES[parent.kind] || 5;
+  const startX = parent.x + pSize + 2;
+  const startY = parent.y;
+  const endX = vn.x - (KIND_SIZES[vn.kind] || 5) - 2;
+  const endY = vn.y;
+  const cpOffset = (endX - startX) * 0.5;
+  treeEdgeGfx.moveTo(startX, startY);
+  treeEdgeGfx.bezierCurveTo(startX + cpOffset, startY, endX - cpOffset, endY, endX, endY);
+  treeEdgeGfx.stroke({ width, color, alpha });
 }
 
 function redrawEdges() {
@@ -757,25 +756,8 @@ function redrawEdges() {
       if (!vn.parentId) return;
       const parent = visNodes.get(vn.parentId);
       if (!parent) return;
-
-      const pSize = KIND_SIZES[parent.kind] || 5;
-
-      // Smooth bezier curve from parent to child
-      const startX = parent.x + pSize + 2;
-      const startY = parent.y;
-      const endX = vn.x - (KIND_SIZES[vn.kind] || 5) - 2;
-      const endY = vn.y;
-      const cpOffset = (endX - startX) * 0.5;
-
-      treeEdgeGfx!.moveTo(startX, startY);
-      treeEdgeGfx!.bezierCurveTo(
-        startX + cpOffset, startY,
-        endX - cpOffset, endY,
-        endX, endY
-      );
-
       const isTreeHover = hoveredId && (vn.id === hoveredId || vn.parentId === hoveredId);
-      treeEdgeGfx!.stroke({ width: isTreeHover ? 1.5 : 1, color: 0xffffff, alpha: isTreeHover ? 0.4 : 0.2 });
+      drawTreeEdge(vn, parent, 0xffffff, isTreeHover ? 0.4 : 0.2, isTreeHover ? 1.5 : 1);
     });
   }
 
@@ -953,16 +935,8 @@ function highlightConnections(nodeId: string) {
       if (!v.parentId) return;
       const parent = visNodes.get(v.parentId);
       if (!parent) return;
-      const pSize = KIND_SIZES[parent.kind] || 5;
-      const startX = parent.x + pSize + 2;
-      const startY = parent.y;
-      const endX = v.x - (KIND_SIZES[v.kind] || 5) - 2;
-      const endY = v.y;
-      const cpOffset = (endX - startX) * 0.5;
-      treeEdgeGfx!.moveTo(startX, startY);
-      treeEdgeGfx!.bezierCurveTo(startX + cpOffset, startY, endX - cpOffset, endY, endX, endY);
       const isConn = connected.has(v.id) && connected.has(v.parentId!);
-      treeEdgeGfx!.stroke({ width: isConn ? 1.5 : 1, color: isConn ? 0x5BA0D0 : 0xffffff, alpha: isConn ? 0.6 : 0.08 });
+      drawTreeEdge(v, parent, isConn ? 0x5BA0D0 : 0xffffff, isConn ? 0.6 : 0.08, isConn ? 1.5 : 1);
     });
   }
 
@@ -998,57 +972,6 @@ function highlightConnections(nodeId: string) {
     world.setChildIndex(treeEdgeGfx, 0);
     world.setChildIndex(importEdgeGfx, 1);
   }
-}
-
-function showInfoPanel(node: GraphNode) {
-  const panel = document.getElementById("info-panel")!;
-  document.getElementById("info-name")!.textContent = node.name;
-
-  const kindEl = document.getElementById("info-kind")!;
-  kindEl.textContent = node.kind;
-  kindEl.style.background = `#${(KIND_COLORS[node.kind] || 0x4a4a6a).toString(16).padStart(6, "0")}`;
-
-  const relPath = graph ? node.filePath.replace(graph.rootPath + "/", "") : node.filePath;
-  document.getElementById("info-path")!.textContent = relPath;
-
-  if (graph) {
-    const incoming = graph.edges.filter((e) => e.target === node.id);
-    const outgoing = graph.edges.filter((e) => e.source === node.id);
-
-    let html = "";
-    if (outgoing.length > 0) {
-      html += `<p style="margin-top:8px;font-weight:600;font-size:12px;">Imports (${outgoing.length})</p><ul>`;
-      outgoing.forEach((e) => {
-        const t = graph!.nodes.find((n) => n.id === e.target);
-        html += `<li data-id="${e.target}">${t?.name || e.target} <span style="color:#505070">${e.symbols.join(", ")}</span></li>`;
-      });
-      html += "</ul>";
-    }
-    if (incoming.length > 0) {
-      html += `<p style="margin-top:8px;font-weight:600;font-size:12px;">Used by (${incoming.length})</p><ul>`;
-      incoming.forEach((e) => {
-        const s = graph!.nodes.find((n) => n.id === e.source);
-        html += `<li data-id="${e.source}">${s?.name || e.source}</li>`;
-      });
-      html += "</ul>";
-    }
-    if (node.exports.length > 0) {
-      html += `<p style="margin-top:8px;font-weight:600;font-size:12px;">Exports</p><ul>`;
-      node.exports.forEach((exp) => { html += `<li>${exp}</li>`; });
-      html += "</ul>";
-    }
-
-    const refsEl = document.getElementById("info-refs")!;
-    refsEl.innerHTML = html;
-    refsEl.querySelectorAll("li[data-id]").forEach((li) => {
-      li.addEventListener("click", () => {
-        const id = (li as HTMLElement).dataset.id!;
-        const target = graph!.nodes.find((n) => n.id === id);
-        if (target) onNodeClick(target);
-      });
-    });
-  }
-  panel.classList.add("visible");
 }
 
 function showStats() {
