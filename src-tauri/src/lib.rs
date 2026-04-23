@@ -132,7 +132,11 @@ fn resolve_import(source: &str, from_file: &Path, root: &Path, alias_paths: &Has
     if source.starts_with('.') {
         let dir = from_file.parent()?;
         let resolved = dir.join(source);
-        return try_resolve_file(&resolved);
+        let result = try_resolve_file(&resolved);
+        if result.is_none() {
+            eprintln!("[resolve] FAIL relative: {} from {}", source, from_file.display());
+        }
+        return result;
     }
 
     // Alias imports — try tsconfig paths first
@@ -147,7 +151,7 @@ fn resolve_import(source: &str, from_file: &Path, root: &Path, alias_paths: &Has
         }
     }
 
-    if let Some((_, targets, rest)) = best_match {
+    if let Some((alias, targets, rest)) = best_match {
         for target_base in targets {
             let candidate = if rest.is_empty() {
                 PathBuf::from(target_base)
@@ -155,34 +159,60 @@ fn resolve_import(source: &str, from_file: &Path, root: &Path, alias_paths: &Has
                 PathBuf::from(target_base).join(rest)
             };
             if let Some(resolved) = try_resolve_file(&candidate) {
+                eprintln!("[resolve] OK tsconfig: {} → {}", source, resolved.display());
                 return Some(resolved);
             }
         }
+        eprintln!("[resolve] FAIL tsconfig: {} (alias={}, targets={:?})", source, alias, targets);
     }
 
     // Monorepo: try node_modules symlink resolve
-    // e.g. @cosmos/common-hook/useNavigator → node_modules/@cosmos/common-hook/src/useNavigator
     let node_modules = root.join("node_modules");
     let parts: Vec<&str> = source.splitn(3, '/').collect();
     if parts.len() >= 2 && parts[0].starts_with('@') {
-        // Scoped package: @scope/name/rest
-        let pkg_dir = node_modules.join(parts[0]).join(parts[1]);
-        if pkg_dir.exists() {
-            // Resolve symlink to real path
-            let real_dir = std::fs::canonicalize(&pkg_dir).unwrap_or(pkg_dir);
+        let pkg_link = node_modules.join(parts[0]).join(parts[1]);
+        if pkg_link.exists() {
+            // Read symlink target (one level), resolve relative to node_modules/@scope/
+            let real_dir = if pkg_link.is_symlink() {
+                let target = std::fs::read_link(&pkg_link).ok()?;
+                if target.is_relative() {
+                    pkg_link.parent()?.join(&target)
+                } else {
+                    target
+                }
+            } else {
+                pkg_link.clone()
+            };
+            // Canonicalize using root as base to stay within project
+            let real_dir = if real_dir.starts_with("..") || real_dir.is_relative() {
+                std::fs::canonicalize(&real_dir).unwrap_or(real_dir)
+            } else {
+                real_dir
+            };
+
             let rest = if parts.len() > 2 { parts[2] } else { "" };
-            // Try src/ prefix (common in monorepo packages)
             let candidates = if rest.is_empty() {
                 vec![real_dir.join("src"), real_dir.clone()]
             } else {
                 vec![real_dir.join("src").join(rest), real_dir.join(rest)]
             };
-            for candidate in candidates {
-                if let Some(resolved) = try_resolve_file(&candidate) {
-                    return Some(resolved);
+            for candidate in &candidates {
+                if let Some(resolved) = try_resolve_file(candidate) {
+                    // Ensure resolved path is under root
+                    if resolved.starts_with(root) {
+                        eprintln!("[resolve] OK monorepo: {} → {}", source, resolved.display());
+                        return Some(resolved);
+                    } else {
+                        eprintln!("[resolve] SKIP monorepo (outside root): {} → {}", source, resolved.display());
+                    }
                 }
             }
+            eprintln!("[resolve] FAIL monorepo: {} (tried {:?})", source, candidates);
+        } else {
+            eprintln!("[resolve] FAIL monorepo: {} (pkg not found: {})", source, pkg_link.display());
         }
+    } else {
+        eprintln!("[resolve] SKIP: {} (not relative, not @scoped)", source);
     }
 
     None

@@ -1122,17 +1122,48 @@ async function showCodePanel(node: GraphNode) {
     const source = await invoke<string>("read_file", { filePath: node.filePath });
     const lines = source.split("\n");
     contentEl.innerHTML = lines.map((line, i) => {
-      const escaped = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      return `<span class="line-num">${i + 1}</span>${escaped}`;
+      const highlighted = highlightSyntax(line);
+      return `<span class="line-num">${i + 1}</span>${highlighted}`;
     }).join("\n");
   } catch (e) {
     contentEl.textContent = `Error: ${e}`;
   }
 }
 
+function highlightSyntax(line: string): string {
+  let s = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  // Comments (// ...)
+  s = s.replace(/(\/\/.*)$/, '<span style="color:#629755;font-style:italic">$1</span>');
+
+  // Strings (double, single, backtick) — simple, non-greedy
+  s = s.replace(/(&quot;[^&]*?&quot;|&#39;[^&]*?&#39;|`[^`]*?`)/g, '<span style="color:#6A8759">$1</span>');
+  // Also handle actual quotes that survived escaping
+  s = s.replace(/("[^"]*?"|'[^']*?')/g, '<span style="color:#6A8759">$1</span>');
+
+  // Keywords
+  const keywords = /\b(import|export|from|const|let|var|function|return|if|else|switch|case|default|break|continue|for|while|do|try|catch|finally|throw|new|typeof|instanceof|in|of|class|extends|implements|interface|type|enum|async|await|yield|as|is|readonly|public|private|protected|static|abstract|override|declare|module|namespace|void|null|undefined|true|false)\b/g;
+  s = s.replace(keywords, '<span style="color:#CC7832">$1</span>');
+
+  // Types / Components (PascalCase)
+  s = s.replace(/\b([A-Z][a-zA-Z0-9]+)\b/g, '<span style="color:#A9B7C6">$1</span>');
+
+  // Numbers
+  s = s.replace(/\b(\d+\.?\d*)\b/g, '<span style="color:#6897BB">$1</span>');
+
+  // JSX tags
+  s = s.replace(/(&lt;\/?)([\w.]+)/g, '$1<span style="color:#E8BF6A">$2</span>');
+
+  // Decorators / @ annotations
+  s = s.replace(/@(\w+)/g, '<span style="color:#BBB529">@$1</span>');
+
+  return s;
+}
+
 function initCodePanel() {
   document.getElementById("code-close")!.addEventListener("click", () => {
     document.getElementById("code-panel")!.classList.remove("visible");
+    clearHighlight();
   });
 
   // Tab switching
@@ -1335,17 +1366,24 @@ function setupSearch() {
       const info = document.getElementById("info-panel")!;
       const settings = document.getElementById("settings-panel")!;
       const search = document.getElementById("search-bar")!;
+      const code = document.getElementById("code-panel")!;
       if (search.classList.contains("visible")) {
         e.preventDefault();
         closeSearch();
+      } else if (code.classList.contains("visible")) {
+        e.preventDefault();
+        code.classList.remove("visible");
+        clearHighlight();
       } else if (info.classList.contains("visible")) {
         e.preventDefault();
         info.classList.remove("visible");
-        document.getElementById("code-panel")!.classList.remove("visible");
         clearHighlight();
       } else if (settings.classList.contains("visible")) {
         e.preventDefault();
         settings.classList.remove("visible");
+      } else {
+        // Nothing open — still prevent fullscreen exit
+        e.preventDefault();
       }
     }
     // Arrow keys when search is open
