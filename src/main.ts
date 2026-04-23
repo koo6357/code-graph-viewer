@@ -667,6 +667,20 @@ function renderFolderTree(catKey: string, nodes: GraphNode[]) {
     label.x = size + 5;
     label.anchor.set(0, 0.5);
     label.y = 0;
+
+    // Background behind label to cover lines
+    const labelBg = new Graphics();
+    const pad = 2;
+    // Measure after adding to get bounds
+    cont.addChild(label);
+    const bounds = label.getBounds();
+    labelBg.rect(label.x - pad, -bounds.height / 2 - pad, bounds.width + pad * 2, bounds.height + pad * 2);
+    labelBg.fill({ color: 0x111128, alpha: 1 });
+    // Insert bg before label
+    cont.removeChild(label);
+    cont.addChild(labelBg);
+    cont.addChild(label);
+
     label.eventMode = "static";
     label.cursor = "pointer";
     label.on("pointerover", () => {
