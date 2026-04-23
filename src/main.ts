@@ -1133,41 +1133,59 @@ async function showCodePanel(node: GraphNode) {
 function highlightSyntax(line: string): string {
   const s = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-  // Tokenize: split into segments that should/shouldn't be highlighted
-  const tokens: Array<{ text: string; type: string }> = [];
-  let remaining = s;
-
-  // Simple tokenizer: extract strings, comments, then highlight rest
-  const regex = /(\/\/.*$)|("[^"]*"|'[^']*'|`[^`]*`)|(\b(?:import|export|from|const|let|var|function|return|if|else|switch|case|default|break|continue|for|while|do|try|catch|finally|throw|new|typeof|instanceof|in|of|class|extends|implements|interface|type|enum|async|await|yield|as|is|readonly|public|private|protected|static|abstract|override|declare|void|null|undefined|true|false)\b)|(\b\d+\.?\d*\b)/g;
+  // Tokenize with priority order
+  const regex = /(\/\/.*$)|(\/\*.*?\*\/)|("[^"]*"|'[^']*'|`[^`]*`)|(&lt;\/?)\s*([A-Z][a-zA-Z0-9.]*)|(&lt;\/?)\s*([a-z][a-zA-Z0-9.-]*)|(&gt;)|(\/?&gt;)|(\b(?:import|export|from|const|let|var|function|return|if|else|switch|case|default|break|continue|for|while|do|try|catch|finally|throw|new|typeof|instanceof|in|of|class|extends|implements|interface|type|enum|async|await|yield|as|is|readonly|public|private|protected|static|abstract|override|declare|void|null|undefined|true|false)\b)|(\b[a-z_$][a-zA-Z0-9_$]*)\s*(?=\()|(\b[A-Z][a-zA-Z0-9]*\b)|(\b\d+\.?\d*\b)|(=>)/g;
 
   let lastIndex = 0;
   let match;
   let result = "";
 
   while ((match = regex.exec(s)) !== null) {
-    // Add unmatched text before this match
     if (match.index > lastIndex) {
       result += s.slice(lastIndex, match.index);
     }
 
     if (match[1]) {
-      // Comment
+      // Line comment
       result += `<span style="color:#808080;font-style:italic">${match[1]}</span>`;
     } else if (match[2]) {
-      // String
-      result += `<span style="color:#6A8759">${match[2]}</span>`;
+      // Block comment
+      result += `<span style="color:#808080;font-style:italic">${match[2]}</span>`;
     } else if (match[3]) {
+      // String
+      result += `<span style="color:#6A8759">${match[3]}</span>`;
+    } else if (match[4] && match[5]) {
+      // JSX Component tag (PascalCase) <ComponentName
+      result += `<span style="color:#E8BF6A">${match[4]}</span><span style="color:#FFC66D">${match[5]}</span>`;
+    } else if (match[6] && match[7]) {
+      // JSX HTML tag (lowercase) <div
+      result += `<span style="color:#E8BF6A">${match[6]}</span><span style="color:#E8BF6A">${match[7]}</span>`;
+    } else if (match[8]) {
+      // Closing >
+      result += `<span style="color:#E8BF6A">${match[8]}</span>`;
+    } else if (match[9]) {
+      // Self-closing /> or >
+      result += `<span style="color:#E8BF6A">${match[9]}</span>`;
+    } else if (match[10]) {
       // Keyword
-      result += `<span style="color:#CC7832">${match[3]}</span>`;
-    } else if (match[4]) {
+      result += `<span style="color:#CC7832">${match[10]}</span>`;
+    } else if (match[11]) {
+      // Function call
+      result += `<span style="color:#FFC66D">${match[11]}</span>`;
+    } else if (match[12]) {
+      // Type/Class (PascalCase)
+      result += `<span style="color:#A9B7C6">${match[12]}</span>`;
+    } else if (match[13]) {
       // Number
-      result += `<span style="color:#6897BB">${match[4]}</span>`;
+      result += `<span style="color:#6897BB">${match[13]}</span>`;
+    } else if (match[14]) {
+      // Arrow =>
+      result += `<span style="color:#CC7832">${match[14]}</span>`;
     }
 
     lastIndex = regex.lastIndex;
   }
 
-  // Add remaining text
   if (lastIndex < s.length) {
     result += s.slice(lastIndex);
   }
