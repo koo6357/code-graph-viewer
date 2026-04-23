@@ -1147,40 +1147,40 @@ function highlightSyntax(line: string): string {
 
     if (match[1]) {
       // Line comment
-      result += `<span style="color:#808080;font-style:italic">${match[1]}</span>`;
+      result += `<span style="color:#7A7E85;font-style:italic">${match[1]}</span>`;
     } else if (match[2]) {
       // Block comment
-      result += `<span style="color:#808080;font-style:italic">${match[2]}</span>`;
+      result += `<span style="color:#7A7E85;font-style:italic">${match[2]}</span>`;
     } else if (match[3]) {
       // String
-      result += `<span style="color:#6A8759">${match[3]}</span>`;
+      result += `<span style="color:#6AAB73">${match[3]}</span>`;
     } else if (match[4] && match[5]) {
-      // JSX Component tag (PascalCase) <ComponentName
-      result += `<span style="color:#E8BF6A">${match[4]}</span><span style="color:#FFC66D">${match[5]}</span>`;
+      // JSX Component tag (PascalCase)
+      result += `<span style="color:#6FAFBD">${match[4]}</span><span style="color:#6FAFBD">${match[5]}</span>`;
     } else if (match[6] && match[7]) {
-      // JSX HTML tag (lowercase) <div
-      result += `<span style="color:#E8BF6A">${match[6]}</span><span style="color:#E8BF6A">${match[7]}</span>`;
+      // JSX HTML tag (lowercase)
+      result += `<span style="color:#CF8E6D">${match[6]}</span><span style="color:#CF8E6D">${match[7]}</span>`;
     } else if (match[8]) {
       // Closing >
-      result += `<span style="color:#E8BF6A">${match[8]}</span>`;
+      result += `<span style="color:#CF8E6D">${match[8]}</span>`;
     } else if (match[9]) {
-      // Self-closing /> or >
-      result += `<span style="color:#E8BF6A">${match[9]}</span>`;
+      // Self-closing />
+      result += `<span style="color:#CF8E6D">${match[9]}</span>`;
     } else if (match[10]) {
       // Keyword
-      result += `<span style="color:#CC7832">${match[10]}</span>`;
+      result += `<span style="color:#CF8E6D">${match[10]}</span>`;
     } else if (match[11]) {
       // Function call
-      result += `<span style="color:#FFC66D">${match[11]}</span>`;
+      result += `<span style="color:#56A8F5">${match[11]}</span>`;
     } else if (match[12]) {
       // Type/Class (PascalCase)
-      result += `<span style="color:#A9B7C6">${match[12]}</span>`;
+      result += `<span style="color:#6FAFBD">${match[12]}</span>`;
     } else if (match[13]) {
       // Number
-      result += `<span style="color:#6897BB">${match[13]}</span>`;
+      result += `<span style="color:#2AACB8">${match[13]}</span>`;
     } else if (match[14]) {
       // Arrow =>
-      result += `<span style="color:#CC7832">${match[14]}</span>`;
+      result += `<span style="color:#CF8E6D">${match[14]}</span>`;
     }
 
     lastIndex = regex.lastIndex;
