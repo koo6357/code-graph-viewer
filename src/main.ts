@@ -1134,7 +1134,7 @@ function highlightSyntax(line: string): string {
   const s = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
   // Tokenize with priority order
-  const regex = /(\/\/.*$)|(\/\*.*?\*\/)|("[^"]*"|'[^']*'|`[^`]*`)|(=>)|(&lt;\/?)\s*([A-Z][a-zA-Z0-9.]*)|(&lt;\/?)\s*([a-z][a-zA-Z0-9.-]*)|(&lt;\/?|\/?&gt;)|(\b(?:import|export|from|const|let|var|function|return|if|else|switch|case|default|break|continue|for|while|do|try|catch|finally|throw|new|typeof|instanceof|in|of|class|extends|implements|interface|type|enum|async|await|yield|as|is|readonly|public|private|protected|static|abstract|override|declare|void|null|undefined|true|false)\b)|(\b[a-z_$][a-zA-Z0-9_$]*)\s*(?=\()|(\b[A-Z][a-zA-Z0-9]*\b)|(\b\d+\.?\d*\b)/g;
+  const regex = /(\/\/.*$)|(\/\*.*?\*\/)|("[^"]*"|'[^']*'|`[^`]*`)|(=&gt;)|(&lt;\/?)\s*([A-Z][a-zA-Z0-9.]*)|(&lt;\/?)\s*([a-z][a-zA-Z0-9.-]*)|(&lt;\/?|\/?&gt;)|(\b(?:import|export|from|const|let|var|function|return|if|else|switch|case|default|break|continue|for|while|do|try|catch|finally|throw|new|typeof|instanceof|in|of|class|extends|implements|interface|type|enum|async|await|yield|as|is|readonly|public|private|protected|static|abstract|override|declare|void|null|undefined|true|false)\b)|(\b[a-z_$][a-zA-Z0-9_$]*)\s*(?=\()|(\b[A-Z][a-zA-Z0-9]*\b)|(\b\d+\.?\d*\b)/g;
 
   let lastIndex = 0;
   let match;
@@ -1156,7 +1156,7 @@ function highlightSyntax(line: string): string {
       result += `<span style="color:#6AAB73">${match[3]}</span>`;
     } else if (match[4]) {
       // Arrow =>
-      result += `<span style="color:#CF8E6D">${match[4]}</span>`;
+      result += `<span style="color:#C5C8C6">${match[4]}</span>`;
     } else if (match[5] && match[6]) {
       // JSX Component tag: < is bracket color, name is component color
       result += `<span style="color:#CF8E6D">${match[5]}</span><span style="color:#6FAFBD">${match[6]}</span>`;
