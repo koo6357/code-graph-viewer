@@ -613,18 +613,14 @@ function renderFolderTree(catKey: string, nodes: GraphNode[]) {
   const tree = buildDirTree(nodes, catKey);
   const layout = layoutTree(tree, 50, 50);
 
-  // Edge layer (behind)
-  const edgeLayer = new Container();
-  world.addChild(edgeLayer);
-
+  // Edges at bottom, nodes on top
   treeEdgeGfx = new Graphics();
-  edgeLayer.addChild(treeEdgeGfx);
-
   importEdgeGfx = new Graphics();
-  edgeLayer.addChild(importEdgeGfx);
-
-  // Node layer (on top)
   const nodeLayer = new Container();
+
+  // Order matters: first added = behind
+  world.addChild(treeEdgeGfx);
+  world.addChild(importEdgeGfx);
   world.addChild(nodeLayer);
 
   // Create visual nodes
@@ -794,6 +790,12 @@ function redrawEdges() {
       });
     });
   }
+
+  // Force z-order: edges behind nodes
+  if (world && treeEdgeGfx && importEdgeGfx) {
+    world.setChildIndex(treeEdgeGfx, 0);
+    world.setChildIndex(importEdgeGfx, 1);
+  }
 }
 
 function centerView() {
@@ -919,6 +921,12 @@ function highlightConnections(nodeId: string) {
       alpha: isHL ? 0.9 : 0.03,
     });
   });
+
+  // Force z-order
+  if (world && treeEdgeGfx && importEdgeGfx) {
+    world.setChildIndex(treeEdgeGfx, 0);
+    world.setChildIndex(importEdgeGfx, 1);
+  }
 }
 
 function showInfoPanel(node: GraphNode) {
