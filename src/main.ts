@@ -1149,10 +1149,10 @@ let currentInfoNode: GraphNode | null = null;
 
 function updateCodeInfo(node: GraphNode) {
   currentInfoNode = node;
-  // Default to info tab
+  // Default to api tab
   document.querySelectorAll(".code-info-tab").forEach((t) => t.classList.remove("active"));
-  document.querySelector('.code-info-tab[data-tab="info"]')!.classList.add("active");
-  renderCodeInfoTab("info", node);
+  document.querySelector('.code-info-tab[data-tab="api"]')!.classList.add("active");
+  renderCodeInfoTab("api", node);
 }
 
 function renderCodeInfoTab(tab: string, node: GraphNode) {
@@ -1163,13 +1163,17 @@ function renderCodeInfoTab(tab: string, node: GraphNode) {
   const incoming = graph.edges.filter((e) => e.target === node.id);
   const outgoing = graph.edges.filter((e) => e.source === node.id);
 
-  if (tab === "info") {
-    el.innerHTML = `
-      <div><span style="color:#606080">Name:</span> ${node.name}</div>
-      <div><span style="color:#606080">Kind:</span> <span style="color:${getKindColorHex(node.kind)}">${node.kind}</span></div>
-      <div><span style="color:#606080">Path:</span> ${relPath}</div>
-      <div><span style="color:#606080">Imports:</span> ${outgoing.length} · <span style="color:#606080">Used by:</span> ${incoming.length} · <span style="color:#606080">Exports:</span> ${node.exports.length}</div>
-    `;
+  if (tab === "api") {
+    // Collect all API hooks reachable from this node (recursive import tree)
+    const apis = collectApiHooks(node.id);
+    if (apis.length === 0) {
+      el.innerHTML = "<div style='color:#505070'>No API calls found</div>";
+      return;
+    }
+    el.innerHTML = "<ul>" + apis.map((a) => {
+      return `<li data-id="${a.nodeId}"><span style="color:#06d6a0">${a.name}</span> <span style="color:#505070">${a.via !== node.id ? "via " + a.viaName : "direct"}</span></li>`;
+    }).join("") + "</ul>";
+    bindInfoLinks(el);
   } else if (tab === "imports") {
     if (outgoing.length === 0) { el.innerHTML = "<div style='color:#505070'>No imports</div>"; return; }
     el.innerHTML = "<ul>" + outgoing.map((e) => {
@@ -1206,6 +1210,42 @@ function getKindColorHex(kind?: string): string {
     store: "#f77f00", util: "#4a6fa5", constant: "#6a6a8a", type: "#8a6a9a", dir: "#505070",
   };
   return colors[kind || ""] || "#a0a0c0";
+}
+
+interface ApiInfo {
+  nodeId: string;
+  name: string;
+  via: string;     // which file imports it
+  viaName: string;
+}
+
+function collectApiHooks(startId: string): ApiInfo[] {
+  if (!graph) return [];
+  const apis: ApiInfo[] = [];
+  const visited = new Set<string>();
+
+  function walk(nodeId: string, viaId: string, viaName: string) {
+    if (visited.has(nodeId)) return;
+    visited.add(nodeId);
+
+    // Check if this node is an API hook
+    const node = graph!.nodes.find((n) => n.id === nodeId);
+    if (node && node.kind === "apiHook") {
+      apis.push({ nodeId: node.id, name: node.name, via: viaId, viaName });
+      return; // don't recurse into API hooks
+    }
+
+    // Follow imports from this node
+    graph!.edges.filter((e) => e.source === nodeId && e.kind === "import").forEach((e) => {
+      const target = graph!.nodes.find((n) => n.id === e.target);
+      if (target) {
+        walk(e.target, nodeId, node?.name || nodeId);
+      }
+    });
+  }
+
+  walk(startId, startId, "");
+  return apis;
 }
 
 // --- Minimap ---
