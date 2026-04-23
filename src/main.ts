@@ -159,6 +159,7 @@ async function init() {
   setupSettings();
   setupSearch();
   initMinimap();
+  initCodePanel();
   await tryAutoOpen();
 }
 
@@ -839,6 +840,7 @@ function centerView() {
 function onNodeClick(node: GraphNode) {
   highlightConnections(node.id);
   showInfoPanel(node);
+  showCodePanel(node);
 }
 
 function clearHighlight() {
@@ -1105,6 +1107,35 @@ function rerender() {
   }
 }
 
+// --- Code Viewer ---
+async function showCodePanel(node: GraphNode) {
+  const panel = document.getElementById("code-panel")!;
+  const pathEl = document.getElementById("code-file-path")!;
+  const contentEl = document.getElementById("code-content")!;
+
+  const relPath = graph ? node.filePath.replace(graph.rootPath + "/", "") : node.filePath;
+  pathEl.textContent = relPath;
+  contentEl.textContent = "Loading...";
+  panel.classList.add("visible");
+
+  try {
+    const source = await invoke<string>("read_file", { filePath: node.filePath });
+    const lines = source.split("\n");
+    contentEl.innerHTML = lines.map((line, i) => {
+      const escaped = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      return `<span class="line-num">${i + 1}</span>${escaped}`;
+    }).join("\n");
+  } catch (e) {
+    contentEl.textContent = `Error: ${e}`;
+  }
+}
+
+function initCodePanel() {
+  document.getElementById("code-close")!.addEventListener("click", () => {
+    document.getElementById("code-panel")!.classList.remove("visible");
+  });
+}
+
 // --- Minimap ---
 let minimapCanvas: HTMLCanvasElement | null = null;
 let minimapCtx: CanvasRenderingContext2D | null = null;
@@ -1245,6 +1276,7 @@ function setupSearch() {
       } else if (info.classList.contains("visible")) {
         e.preventDefault();
         info.classList.remove("visible");
+        document.getElementById("code-panel")!.classList.remove("visible");
         clearHighlight();
       } else if (settings.classList.contains("visible")) {
         e.preventDefault();
