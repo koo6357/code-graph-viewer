@@ -87,11 +87,7 @@ let canvasDragging = false;
 let canvasStartX = 0;
 let canvasStartY = 0;
 
-// Node drag
-let dragNode: VisNode | null = null;
-let dragOffsetX = 0;
-let dragOffsetY = 0;
-let didDragNode = false;
+// (node drag removed)
 
 // --- Init ---
 async function init() {
@@ -113,25 +109,12 @@ async function init() {
   const canvas = pixiApp.canvas as HTMLCanvasElement;
 
   canvas.addEventListener("pointerdown", (e) => {
-    if (dragNode) return;
     canvasDragging = true;
     canvasStartX = e.clientX;
     canvasStartY = e.clientY;
   });
 
   window.addEventListener("pointermove", (e) => {
-    if (dragNode) {
-      // Node drag
-      const worldX = (e.clientX - offX) / scale;
-      const worldY = (e.clientY - offY) / scale;
-      dragNode.x = worldX - dragOffsetX;
-      dragNode.y = worldY - dragOffsetY;
-      dragNode.container.x = dragNode.x;
-      dragNode.container.y = dragNode.y;
-      didDragNode = true;
-      redrawEdges();
-      return;
-    }
     if (canvasDragging) {
       offX += e.clientX - canvasStartX;
       offY += e.clientY - canvasStartY;
@@ -142,12 +125,6 @@ async function init() {
   });
 
   window.addEventListener("pointerup", () => {
-    if (dragNode && !didDragNode) {
-      // Was a click, not drag
-      if (dragNode.node) onNodeClick(dragNode.node);
-    }
-    dragNode = null;
-    didDragNode = false;
     if (canvasDragging) {
       canvasDragging = false;
       canvas.style.cursor = "default";
@@ -668,27 +645,16 @@ function renderFolderTree(catKey: string, nodes: GraphNode[]) {
 
     circle.on("pointerdown", (e) => {
       e.stopPropagation();
-      const vn = visNodes.get(dn.id);
-      if (vn) {
-        dragNode = vn;
-        didDragNode = false;
-        const worldX = (e.clientX - offX) / scale;
-        const worldY = (e.clientY - offY) / scale;
-        dragOffsetX = worldX - vn.x;
-        dragOffsetY = worldY - vn.y;
-      }
-    });
-    circle.on("pointerup", () => {
-      if (!didDragNode && dn.node) onNodeClick(dn.node);
+      if (dn.node) onNodeClick(dn.node);
     });
 
     circle.on("pointerover", () => {
       const vn = visNodes.get(dn.id);
-      if (vn && !dragNode) highlightHover(vn.id);
+      if (vn) highlightHover(vn.id);
     });
 
     circle.on("pointerout", () => {
-      if (!dragNode) clearHover();
+      clearHover();
     });
 
     cont.addChild(circle);
@@ -709,16 +675,14 @@ function renderFolderTree(catKey: string, nodes: GraphNode[]) {
     label.cursor = "pointer";
     label.on("pointerover", () => {
       const vn = visNodes.get(dn.id);
-      if (vn && !dragNode) highlightHover(vn.id);
+      if (vn) highlightHover(vn.id);
     });
     label.on("pointerout", () => {
-      if (!dragNode) clearHover();
+      clearHover();
     });
     label.on("pointerdown", (e) => {
       e.stopPropagation();
-    });
-    label.on("pointerup", () => {
-      if (!didDragNode && dn.node) onNodeClick(dn.node);
+      if (dn.node) onNodeClick(dn.node);
     });
     cont.addChild(label);
 
