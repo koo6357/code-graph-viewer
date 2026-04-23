@@ -844,7 +844,8 @@ function onNodeClick(node: GraphNode) {
 
 function clearHighlight() {
   visNodes.forEach((vn) => {
-    vn.container.alpha = 1;
+    vn.circle.alpha = 1;
+    vn.label.alpha = 1;
   });
   redrawEdges();
 }
@@ -910,7 +911,10 @@ function highlightConnections(nodeId: string) {
   });
 
   visNodes.forEach((vn, id) => {
-    vn.container.alpha = connected.has(id) ? 1 : 0.15;
+    const dim = connected.has(id) ? 1 : 0.5;
+    vn.circle.alpha = dim;
+    vn.label.alpha = dim;
+    // container.alpha stays 1 so label background remains opaque
   });
 
   // Redraw import edges with highlight
