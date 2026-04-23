@@ -918,34 +918,44 @@ function highlightConnections(nodeId: string) {
     if (e.source === nodeId) connected.add(e.target);
     if (e.target === nodeId) connected.add(e.source);
   });
+  // Also add tree parent and all descendants
+  const vn = visNodes.get(nodeId);
+  if (vn) {
+    if (vn.parentId) connected.add(vn.parentId);
+    const collectChildren = (id: string) => {
+      const node = visNodes.get(id);
+      if (!node) return;
+      node.children.forEach((c) => { connected.add(c); collectChildren(c); });
+    };
+    collectChildren(nodeId);
+  }
 
-  visNodes.forEach((vn, id) => {
+  visNodes.forEach((v, id) => {
     const dim = connected.has(id) ? 1 : 0.5;
-    vn.circle.alpha = dim;
-    vn.label.alpha = dim;
+    v.circle.alpha = dim;
+    v.label.alpha = dim;
     if (connected.has(id)) {
-      (vn.label.style as TextStyle).fill = 0xffffff;
+      (v.label.style as TextStyle).fill = 0x5BA0D0; // light blue for focus
     }
-    // container.alpha stays 1 so label background remains opaque
   });
 
   // Redraw tree edges with highlight
   if (treeEdgeGfx) {
     treeEdgeGfx.clear();
-    visNodes.forEach((vn) => {
-      if (!vn.parentId) return;
-      const parent = visNodes.get(vn.parentId);
+    visNodes.forEach((v) => {
+      if (!v.parentId) return;
+      const parent = visNodes.get(v.parentId);
       if (!parent) return;
       const pSize = KIND_SIZES[parent.kind] || 5;
       const startX = parent.x + pSize + 2;
       const startY = parent.y;
-      const endX = vn.x - (KIND_SIZES[vn.kind] || 5) - 2;
-      const endY = vn.y;
+      const endX = v.x - (KIND_SIZES[v.kind] || 5) - 2;
+      const endY = v.y;
       const cpOffset = (endX - startX) * 0.5;
       treeEdgeGfx!.moveTo(startX, startY);
       treeEdgeGfx!.bezierCurveTo(startX + cpOffset, startY, endX - cpOffset, endY, endX, endY);
-      const isConn = connected.has(vn.id) && connected.has(vn.parentId);
-      treeEdgeGfx!.stroke({ width: isConn ? 1.5 : 1, color: isConn ? 0x5BA0D0 : 0xffffff, alpha: isConn ? 0.6 : 0.1 });
+      const isConn = connected.has(v.id) && connected.has(v.parentId!);
+      treeEdgeGfx!.stroke({ width: isConn ? 1.5 : 1, color: isConn ? 0x5BA0D0 : 0xffffff, alpha: isConn ? 0.6 : 0.08 });
     });
   }
 
