@@ -1152,7 +1152,7 @@ function highlightSyntax(line: string): string {
 
     if (match[1]) {
       // Comment
-      result += `<span style="color:#629755;font-style:italic">${match[1]}</span>`;
+      result += `<span style="color:#808080;font-style:italic">${match[1]}</span>`;
     } else if (match[2]) {
       // String
       result += `<span style="color:#6A8759">${match[2]}</span>`;
