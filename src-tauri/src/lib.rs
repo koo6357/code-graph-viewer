@@ -135,7 +135,7 @@ fn resolve_import(source: &str, from_file: &Path, root: &Path, alias_paths: &Has
         return try_resolve_file(&resolved);
     }
 
-    // Alias imports — match longest prefix
+    // Alias imports — try tsconfig paths first
     let mut best_match: Option<(&str, &Vec<String>, &str)> = None;
     for (alias, targets) in alias_paths {
         if source.starts_with(alias.as_str()) {
@@ -156,6 +156,31 @@ fn resolve_import(source: &str, from_file: &Path, root: &Path, alias_paths: &Has
             };
             if let Some(resolved) = try_resolve_file(&candidate) {
                 return Some(resolved);
+            }
+        }
+    }
+
+    // Monorepo: try node_modules symlink resolve
+    // e.g. @cosmos/common-hook/useNavigator → node_modules/@cosmos/common-hook/src/useNavigator
+    let node_modules = root.join("node_modules");
+    let parts: Vec<&str> = source.splitn(3, '/').collect();
+    if parts.len() >= 2 && parts[0].starts_with('@') {
+        // Scoped package: @scope/name/rest
+        let pkg_dir = node_modules.join(parts[0]).join(parts[1]);
+        if pkg_dir.exists() {
+            // Resolve symlink to real path
+            let real_dir = std::fs::canonicalize(&pkg_dir).unwrap_or(pkg_dir);
+            let rest = if parts.len() > 2 { parts[2] } else { "" };
+            // Try src/ prefix (common in monorepo packages)
+            let candidates = if rest.is_empty() {
+                vec![real_dir.join("src"), real_dir.clone()]
+            } else {
+                vec![real_dir.join("src").join(rest), real_dir.join(rest)]
+            };
+            for candidate in candidates {
+                if let Some(resolved) = try_resolve_file(&candidate) {
+                    return Some(resolved);
+                }
             }
         }
     }
