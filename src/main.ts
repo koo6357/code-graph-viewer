@@ -1126,15 +1126,26 @@ function initMinimap() {
 function onMinimapClick(e: PointerEvent) {
   if (!app || !minimapCanvas) return;
   const rect = minimapCanvas.getBoundingClientRect();
-  const mx = (e.clientX - rect.left) / rect.width;
-  const my = (e.clientY - rect.top) / rect.height;
+  const clickX = e.clientX - rect.left;
+  const clickY = e.clientY - rect.top;
 
+  const w = minimapCanvas.width;
+  const h = minimapCanvas.height;
   const gw = graphBounds.maxX - graphBounds.minX || 1;
   const gh = graphBounds.maxY - graphBounds.minY || 1;
 
-  // World coordinate that should be at screen center
-  const worldX = graphBounds.minX + mx * gw;
-  const worldY = graphBounds.minY + my * gh;
+  const graphAspect = gw / gh;
+  const mapAspect = w / h;
+  let drawW: number, drawH: number, drawX: number, drawY: number;
+  if (graphAspect > mapAspect) {
+    drawW = w; drawH = w / graphAspect; drawX = 0; drawY = (h - drawH) / 2;
+  } else {
+    drawH = h; drawW = h * graphAspect; drawX = (w - drawW) / 2; drawY = 0;
+  }
+
+  // Convert minimap click to world coordinate
+  const worldX = graphBounds.minX + ((clickX * (w / rect.width) - drawX) / drawW) * gw;
+  const worldY = graphBounds.minY + ((clickY * (h / rect.height) - drawY) / drawH) * gh;
 
   offX = app.screen.width / 2 - worldX * scale;
   offY = app.screen.height / 2 - worldY * scale;
@@ -1163,21 +1174,37 @@ function updateMinimap() {
   const gw = maxX - minX || 1;
   const gh = maxY - minY || 1;
 
+  // Fit graph into minimap preserving aspect ratio
+  const graphAspect = gw / gh;
+  const mapAspect = w / h;
+  let drawW: number, drawH: number, drawX: number, drawY: number;
+  if (graphAspect > mapAspect) {
+    drawW = w;
+    drawH = w / graphAspect;
+    drawX = 0;
+    drawY = (h - drawH) / 2;
+  } else {
+    drawH = h;
+    drawW = h * graphAspect;
+    drawX = (w - drawW) / 2;
+    drawY = 0;
+  }
+
   ctx.clearRect(0, 0, w, h);
 
   // Draw nodes as dots
   visNodes.forEach((vn) => {
-    const px = ((vn.x - minX) / gw) * w;
-    const py = ((vn.y - minY) / gh) * h;
+    const px = drawX + ((vn.x - minX) / gw) * drawW;
+    const py = drawY + ((vn.y - minY) / gh) * drawH;
     ctx.fillStyle = vn.isDir ? "#505070" : "#3a86c8";
     ctx.fillRect(px, py, 1.5, 1.5);
   });
 
   // Draw viewport rectangle
-  const vpLeft = (-offX / scale - minX) / gw * w;
-  const vpTop = (-offY / scale - minY) / gh * h;
-  const vpW = (app.screen.width / scale) / gw * w;
-  const vpH = (app.screen.height / scale) / gh * h;
+  const vpLeft = drawX + ((-offX / scale - minX) / gw) * drawW;
+  const vpTop = drawY + ((-offY / scale - minY) / gh) * drawH;
+  const vpW = (app.screen.width / scale) / gw * drawW;
+  const vpH = (app.screen.height / scale) / gh * drawH;
 
   ctx.strokeStyle = "rgba(255,255,255,0.5)";
   ctx.lineWidth = 1;
