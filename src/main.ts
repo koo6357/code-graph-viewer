@@ -1134,7 +1134,7 @@ function highlightSyntax(line: string): string {
   const s = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
   // Tokenize with priority order
-  const regex = /(\/\/.*$)|(\/\*.*?\*\/)|("[^"]*"|'[^']*'|`[^`]*`)|(&lt;\/?)\s*([A-Z][a-zA-Z0-9.]*)|(&lt;\/?)\s*([a-z][a-zA-Z0-9.-]*)|(&gt;)|(\/?&gt;)|(\b(?:import|export|from|const|let|var|function|return|if|else|switch|case|default|break|continue|for|while|do|try|catch|finally|throw|new|typeof|instanceof|in|of|class|extends|implements|interface|type|enum|async|await|yield|as|is|readonly|public|private|protected|static|abstract|override|declare|void|null|undefined|true|false)\b)|(\b[a-z_$][a-zA-Z0-9_$]*)\s*(?=\()|(\b[A-Z][a-zA-Z0-9]*\b)|(\b\d+\.?\d*\b)|(=>)/g;
+  const regex = /(\/\/.*$)|(\/\*.*?\*\/)|("[^"]*"|'[^']*'|`[^`]*`)|(&lt;\/?)\s*([A-Z][a-zA-Z0-9.]*)|(&lt;\/?)\s*([a-z][a-zA-Z0-9.-]*)|(&lt;\/?|&gt;|\/?&gt;)|(\b(?:import|export|from|const|let|var|function|return|if|else|switch|case|default|break|continue|for|while|do|try|catch|finally|throw|new|typeof|instanceof|in|of|class|extends|implements|interface|type|enum|async|await|yield|as|is|readonly|public|private|protected|static|abstract|override|declare|void|null|undefined|true|false)\b)|(\b[a-z_$][a-zA-Z0-9_$]*)\s*(?=\()|(\b[A-Z][a-zA-Z0-9]*\b)|(\b\d+\.?\d*\b)|(=>)/g;
 
   let lastIndex = 0;
   let match;
@@ -1161,26 +1161,23 @@ function highlightSyntax(line: string): string {
       // JSX HTML tag (lowercase)
       result += `<span style="color:#CF8E6D">${match[6]}</span><span style="color:#CF8E6D">${match[7]}</span>`;
     } else if (match[8]) {
-      // Closing >
+      // Tag brackets: < > /> </
       result += `<span style="color:#CF8E6D">${match[8]}</span>`;
     } else if (match[9]) {
-      // Self-closing />
+      // Keyword
       result += `<span style="color:#CF8E6D">${match[9]}</span>`;
     } else if (match[10]) {
-      // Keyword
-      result += `<span style="color:#CF8E6D">${match[10]}</span>`;
-    } else if (match[11]) {
       // Function call
-      result += `<span style="color:#56A8F5">${match[11]}</span>`;
-    } else if (match[12]) {
+      result += `<span style="color:#56A8F5">${match[10]}</span>`;
+    } else if (match[11]) {
       // Type/Class (PascalCase)
-      result += `<span style="color:#6FAFBD">${match[12]}</span>`;
-    } else if (match[13]) {
+      result += `<span style="color:#6FAFBD">${match[11]}</span>`;
+    } else if (match[12]) {
       // Number
-      result += `<span style="color:#2AACB8">${match[13]}</span>`;
-    } else if (match[14]) {
+      result += `<span style="color:#2AACB8">${match[12]}</span>`;
+    } else if (match[13]) {
       // Arrow =>
-      result += `<span style="color:#CF8E6D">${match[14]}</span>`;
+      result += `<span style="color:#CF8E6D">${match[13]}</span>`;
     }
 
     lastIndex = regex.lastIndex;
