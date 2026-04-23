@@ -1131,33 +1131,48 @@ async function showCodePanel(node: GraphNode) {
 }
 
 function highlightSyntax(line: string): string {
-  let s = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const s = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-  // Comments (// ...)
-  s = s.replace(/(\/\/.*)$/, '<span style="color:#629755;font-style:italic">$1</span>');
+  // Tokenize: split into segments that should/shouldn't be highlighted
+  const tokens: Array<{ text: string; type: string }> = [];
+  let remaining = s;
 
-  // Strings (double, single, backtick) — simple, non-greedy
-  s = s.replace(/(&quot;[^&]*?&quot;|&#39;[^&]*?&#39;|`[^`]*?`)/g, '<span style="color:#6A8759">$1</span>');
-  // Also handle actual quotes that survived escaping
-  s = s.replace(/("[^"]*?"|'[^']*?')/g, '<span style="color:#6A8759">$1</span>');
+  // Simple tokenizer: extract strings, comments, then highlight rest
+  const regex = /(\/\/.*$)|("[^"]*"|'[^']*'|`[^`]*`)|(\b(?:import|export|from|const|let|var|function|return|if|else|switch|case|default|break|continue|for|while|do|try|catch|finally|throw|new|typeof|instanceof|in|of|class|extends|implements|interface|type|enum|async|await|yield|as|is|readonly|public|private|protected|static|abstract|override|declare|void|null|undefined|true|false)\b)|(\b\d+\.?\d*\b)/g;
 
-  // Keywords
-  const keywords = /\b(import|export|from|const|let|var|function|return|if|else|switch|case|default|break|continue|for|while|do|try|catch|finally|throw|new|typeof|instanceof|in|of|class|extends|implements|interface|type|enum|async|await|yield|as|is|readonly|public|private|protected|static|abstract|override|declare|module|namespace|void|null|undefined|true|false)\b/g;
-  s = s.replace(keywords, '<span style="color:#CC7832">$1</span>');
+  let lastIndex = 0;
+  let match;
+  let result = "";
 
-  // Types / Components (PascalCase)
-  s = s.replace(/\b([A-Z][a-zA-Z0-9]+)\b/g, '<span style="color:#A9B7C6">$1</span>');
+  while ((match = regex.exec(s)) !== null) {
+    // Add unmatched text before this match
+    if (match.index > lastIndex) {
+      result += s.slice(lastIndex, match.index);
+    }
 
-  // Numbers
-  s = s.replace(/\b(\d+\.?\d*)\b/g, '<span style="color:#6897BB">$1</span>');
+    if (match[1]) {
+      // Comment
+      result += `<span style="color:#629755;font-style:italic">${match[1]}</span>`;
+    } else if (match[2]) {
+      // String
+      result += `<span style="color:#6A8759">${match[2]}</span>`;
+    } else if (match[3]) {
+      // Keyword
+      result += `<span style="color:#CC7832">${match[3]}</span>`;
+    } else if (match[4]) {
+      // Number
+      result += `<span style="color:#6897BB">${match[4]}</span>`;
+    }
 
-  // JSX tags
-  s = s.replace(/(&lt;\/?)([\w.]+)/g, '$1<span style="color:#E8BF6A">$2</span>');
+    lastIndex = regex.lastIndex;
+  }
 
-  // Decorators / @ annotations
-  s = s.replace(/@(\w+)/g, '<span style="color:#BBB529">@$1</span>');
+  // Add remaining text
+  if (lastIndex < s.length) {
+    result += s.slice(lastIndex);
+  }
 
-  return s;
+  return result;
 }
 
 function initCodePanel() {
