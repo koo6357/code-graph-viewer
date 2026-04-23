@@ -73,9 +73,58 @@ fn classify_node(path: &Path, file_info: &parser::FileInfo) -> NodeKind {
 }
 
 /// Resolve an import source to an absolute file path
-fn resolve_import(source: &str, from_file: &Path, root: &Path) -> Option<PathBuf> {
-    // Skip external packages
-    if !source.starts_with('.') && !source.starts_with('@') {
+/// Load path aliases from tsconfig.json (and extended configs)
+fn load_tsconfig_paths(root: &Path) -> HashMap<String, Vec<String>> {
+    let mut paths = HashMap::new();
+    let mut base_url = root.to_path_buf();
+
+    // Try tsconfig.json, then tsconfig.*.json
+    let candidates = ["tsconfig.json", "tsconfig.app.json", "tsconfig.base.json"];
+    for name in &candidates {
+        let tsconfig_path = root.join(name);
+        if let Ok(content) = std::fs::read_to_string(&tsconfig_path) {
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(opts) = json.get("compilerOptions") {
+                    if let Some(bu) = opts.get("baseUrl").and_then(|v| v.as_str()) {
+                        base_url = root.join(bu);
+                    }
+                    if let Some(p) = opts.get("paths").and_then(|v| v.as_object()) {
+                        for (alias, targets) in p {
+                            if let Some(arr) = targets.as_array() {
+                                let resolved: Vec<String> = arr
+                                    .iter()
+                                    .filter_map(|v| v.as_str())
+                                    .map(|s| {
+                                        let clean = s.replace("/*", "");
+                                        base_url.join(&clean).to_string_lossy().to_string()
+                                    })
+                                    .collect();
+                                let alias_clean = alias.replace("/*", "");
+                                paths.insert(alias_clean, resolved);
+                            }
+                        }
+                    }
+                }
+                // Check extends
+                if let Some(extends) = json.get("extends").and_then(|v| v.as_str()) {
+                    let ext_path = root.join(extends);
+                    if let Some(parent) = ext_path.parent() {
+                        let parent_paths = load_tsconfig_paths(parent);
+                        for (k, v) in parent_paths {
+                            paths.entry(k).or_insert(v);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    paths
+}
+
+fn resolve_import(source: &str, from_file: &Path, root: &Path, alias_paths: &HashMap<String, Vec<String>>) -> Option<PathBuf> {
+    // Skip bare external packages (no @ prefix, no relative)
+    if !source.starts_with('.') && !source.starts_with('@') && !source.contains('/') {
         return None;
     }
 
@@ -86,8 +135,31 @@ fn resolve_import(source: &str, from_file: &Path, root: &Path) -> Option<PathBuf
         return try_resolve_file(&resolved);
     }
 
-    // Alias imports (e.g., @cosmos/xxx, @assets/xxx)
-    // For now, skip alias resolution — needs project-specific config
+    // Alias imports — match longest prefix
+    let mut best_match: Option<(&str, &Vec<String>, &str)> = None;
+    for (alias, targets) in alias_paths {
+        if source.starts_with(alias.as_str()) {
+            let rest = &source[alias.len()..];
+            let rest = rest.strip_prefix('/').unwrap_or(rest);
+            if best_match.is_none() || alias.len() > best_match.unwrap().0.len() {
+                best_match = Some((alias.as_str(), targets, rest));
+            }
+        }
+    }
+
+    if let Some((_, targets, rest)) = best_match {
+        for target_base in targets {
+            let candidate = if rest.is_empty() {
+                PathBuf::from(target_base)
+            } else {
+                PathBuf::from(target_base).join(rest)
+            };
+            if let Some(resolved) = try_resolve_file(&candidate) {
+                return Some(resolved);
+            }
+        }
+    }
+
     None
 }
 
@@ -106,6 +178,8 @@ fn try_resolve_file(base: &Path) -> Option<PathBuf> {
 fn build_graph(root: &Path) -> ProjectGraph {
     let files = scanner::scan_project(root);
     let root_str = root.to_string_lossy().to_string();
+    let alias_paths = load_tsconfig_paths(root);
+    eprintln!("[tsconfig] loaded {} path aliases", alias_paths.len());
 
     // Check cache
     let cached = load_cache(&root_str);
@@ -179,7 +253,7 @@ fn build_graph(root: &Path) -> ProjectGraph {
         for (path, info) in &new_parsed {
             let rel_path = path.strip_prefix(root).unwrap_or(path);
             let source_id = rel_path.to_string_lossy().to_string();
-            build_edges_for_file(&source_id, path, info, root, &graph.file_index, &graph.nodes, &mut graph.edges);
+            build_edges_for_file(&source_id, path, info, root, &graph.file_index, &graph.nodes, &mut graph.edges, &alias_paths);
         }
 
         // Update mtime cache
@@ -229,7 +303,7 @@ fn build_graph(root: &Path) -> ProjectGraph {
     for (path, info) in &all_parsed {
         let rel_path = path.strip_prefix(root).unwrap_or(path);
         let source_id = rel_path.to_string_lossy().to_string();
-        build_edges_for_file(&source_id, path, info, root, &file_index, &graph.nodes, &mut graph.edges);
+        build_edges_for_file(&source_id, path, info, root, &file_index, &graph.nodes, &mut graph.edges, &alias_paths);
     }
 
     // Save cache
@@ -287,10 +361,11 @@ fn build_edges_for_file(
     file_index: &HashMap<String, String>,
     _nodes: &[GraphNode],
     edges: &mut Vec<GraphEdge>,
+    alias_paths: &HashMap<String, Vec<String>>,
 ) {
     // Import edges only — store access is already captured via imports
     for import in &info.imports {
-        if let Some(resolved) = resolve_import(&import.source, path, root) {
+        if let Some(resolved) = resolve_import(&import.source, path, root, alias_paths) {
             let target_rel = resolved.strip_prefix(root).unwrap_or(&resolved);
             let target_id = target_rel.to_string_lossy().to_string();
             if file_index.contains_key(&target_id) {
