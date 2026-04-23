@@ -1380,20 +1380,59 @@ function showSearchResultsList(results: VisNode[], activeIdx: number) {
   list.innerHTML = "";
   list.classList.add("visible");
 
-  results.forEach((vn, i) => {
-    const item = document.createElement("div");
-    item.className = "search-result-item" + (i === activeIdx ? " active" : "");
-    item.innerHTML = `<span class="search-result-name">${vn.name}</span><span class="search-result-path">${vn.id}</span>`;
-    item.addEventListener("click", () => {
-      searchIndex = i;
-      document.getElementById("search-info")!.textContent = `${i + 1} / ${results.length}`;
-      applySearchHighlight();
-      updateSearchListActive(i);
-      focusSearchResult(true);
-      if (vn.node) onNodeClick(vn.node);
-    });
-    list.appendChild(item);
-  });
+  const ITEM_H = 28;
+  const totalH = results.length * ITEM_H;
+
+  // Virtual scroll container
+  const spacer = document.createElement("div");
+  spacer.style.height = totalH + "px";
+  spacer.style.position = "relative";
+  list.appendChild(spacer);
+
+  let lastStart = -1;
+
+  function renderVisible() {
+    const scrollTop = list.scrollTop;
+    const viewH = list.clientHeight;
+    const start = Math.max(0, Math.floor(scrollTop / ITEM_H) - 2);
+    const end = Math.min(results.length, Math.ceil((scrollTop + viewH) / ITEM_H) + 2);
+
+    if (start === lastStart) return;
+    lastStart = start;
+
+    // Remove old items
+    spacer.querySelectorAll(".search-result-item").forEach((el) => el.remove());
+
+    for (let i = start; i < end; i++) {
+      const vn = results[i];
+      const item = document.createElement("div");
+      item.className = "search-result-item" + (i === activeIdx ? " active" : "");
+      item.style.position = "absolute";
+      item.style.top = (i * ITEM_H) + "px";
+      item.style.left = "0";
+      item.style.right = "0";
+      item.style.height = ITEM_H + "px";
+      item.dataset.idx = String(i);
+      item.innerHTML = `<span class="search-result-name">${vn.name}</span><span class="search-result-path">${vn.id}</span>`;
+      item.addEventListener("click", () => {
+        searchIndex = i;
+        document.getElementById("search-info")!.textContent = `${i + 1} / ${results.length}`;
+        applySearchHighlight();
+        updateSearchListActive(i);
+        focusSearchResult(true);
+        if (vn.node) onNodeClick(vn.node);
+      });
+      spacer.appendChild(item);
+    }
+  }
+
+  list.addEventListener("scroll", renderVisible);
+  renderVisible();
+
+  // Scroll active into view
+  if (activeIdx >= 0) {
+    list.scrollTop = activeIdx * ITEM_H - list.clientHeight / 2;
+  }
 }
 
 function hideSearchResultsList() {
@@ -1401,11 +1440,18 @@ function hideSearchResultsList() {
 }
 
 function updateSearchListActive(idx: number) {
-  const items = document.querySelectorAll(".search-result-item");
-  items.forEach((el, i) => {
+  const ITEM_H = 28;
+  const list = document.getElementById("search-results-list")!;
+  // Update active class on visible items
+  list.querySelectorAll(".search-result-item").forEach((el) => {
+    const i = parseInt((el as HTMLElement).dataset.idx || "-1");
     el.classList.toggle("active", i === idx);
-    if (i === idx) el.scrollIntoView({ block: "nearest" });
   });
+  // Scroll into view
+  const targetTop = idx * ITEM_H;
+  if (targetTop < list.scrollTop || targetTop > list.scrollTop + list.clientHeight - ITEM_H) {
+    list.scrollTop = targetTop - list.clientHeight / 2;
+  }
 }
 
 // --- Start ---
