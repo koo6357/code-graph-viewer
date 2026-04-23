@@ -1303,7 +1303,15 @@ function setupSearch() {
       info.textContent = `1 / ${searchResults.length}`;
       applySearchHighlight();
       if (isPathSearch) {
-        showSearchResultsList(searchResults, 0);
+        if (searchResults.length <= 500) {
+          showSearchResultsList(searchResults, 0);
+        } else {
+          // Too many results — show count, don't render list
+          hideSearchResultsList();
+          info.textContent = `${searchResults.length} results (type more to filter)`;
+          searchIndex = -1;
+          return;
+        }
       } else {
         hideSearchResultsList();
       }
@@ -1314,7 +1322,7 @@ function setupSearch() {
       clearSearchHighlight();
       hideSearchResultsList();
     }
-    }, 150); // debounce 150ms
+    }, 250); // debounce 250ms
   });
 
   document.getElementById("search-next")!.addEventListener("click", () => navigateSearch(1));
