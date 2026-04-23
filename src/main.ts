@@ -843,6 +843,7 @@ function onNodeClick(node: GraphNode) {
 }
 
 function clearHighlight() {
+  focusedId = null;
   visNodes.forEach((vn) => {
     vn.circle.alpha = 1;
     vn.label.alpha = 1;
@@ -852,6 +853,7 @@ function clearHighlight() {
 }
 
 let hoveredId: string | null = null;
+let focusedId: string | null = null;
 
 function highlightHover(nodeId: string) {
   hoveredId = nodeId;
@@ -895,15 +897,21 @@ function highlightHover(nodeId: string) {
 
 function clearHover() {
   hoveredId = null;
-  visNodes.forEach((v) => {
-    (v.label.style as TextStyle).fill = v.isDir ? 0x8080a0 : 0xb0b0d0;
-    v.label.alpha = 1;
-  });
-  redrawEdges();
+  if (focusedId) {
+    // Restore focus highlight instead of clearing
+    highlightConnections(focusedId);
+  } else {
+    visNodes.forEach((v) => {
+      (v.label.style as TextStyle).fill = v.isDir ? 0x8080a0 : 0xb0b0d0;
+      v.label.alpha = 1;
+    });
+    redrawEdges();
+  }
 }
 
 function highlightConnections(nodeId: string) {
   if (!graph || !importEdgeGfx) return;
+  focusedId = nodeId;
 
   const connected = new Set<string>([nodeId]);
   graph.edges.forEach((e) => {
