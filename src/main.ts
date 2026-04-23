@@ -839,7 +839,6 @@ function centerView() {
 // --- Interaction ---
 function onNodeClick(node: GraphNode) {
   highlightConnections(node.id);
-  showInfoPanel(node);
   showCodePanel(node);
 }
 
@@ -1117,6 +1116,7 @@ async function showCodePanel(node: GraphNode) {
   pathEl.textContent = relPath;
   contentEl.textContent = "Loading...";
   panel.classList.add("visible");
+  updateCodeInfo(node);
 
   try {
     const source = await invoke<string>("read_file", { filePath: node.filePath });
@@ -1134,6 +1134,78 @@ function initCodePanel() {
   document.getElementById("code-close")!.addEventListener("click", () => {
     document.getElementById("code-panel")!.classList.remove("visible");
   });
+
+  // Tab switching
+  document.querySelectorAll(".code-info-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".code-info-tab").forEach((t) => t.classList.remove("active"));
+      tab.classList.add("active");
+      if (currentInfoNode) renderCodeInfoTab((tab as HTMLElement).dataset.tab!, currentInfoNode);
+    });
+  });
+}
+
+let currentInfoNode: GraphNode | null = null;
+
+function updateCodeInfo(node: GraphNode) {
+  currentInfoNode = node;
+  // Default to info tab
+  document.querySelectorAll(".code-info-tab").forEach((t) => t.classList.remove("active"));
+  document.querySelector('.code-info-tab[data-tab="info"]')!.classList.add("active");
+  renderCodeInfoTab("info", node);
+}
+
+function renderCodeInfoTab(tab: string, node: GraphNode) {
+  const el = document.getElementById("code-info-content")!;
+  if (!graph) return;
+
+  const relPath = node.filePath.replace(graph.rootPath + "/", "");
+  const incoming = graph.edges.filter((e) => e.target === node.id);
+  const outgoing = graph.edges.filter((e) => e.source === node.id);
+
+  if (tab === "info") {
+    el.innerHTML = `
+      <div><span style="color:#606080">Name:</span> ${node.name}</div>
+      <div><span style="color:#606080">Kind:</span> <span style="color:${getKindColorHex(node.kind)}">${node.kind}</span></div>
+      <div><span style="color:#606080">Path:</span> ${relPath}</div>
+      <div><span style="color:#606080">Imports:</span> ${outgoing.length} · <span style="color:#606080">Used by:</span> ${incoming.length} · <span style="color:#606080">Exports:</span> ${node.exports.length}</div>
+    `;
+  } else if (tab === "imports") {
+    if (outgoing.length === 0) { el.innerHTML = "<div style='color:#505070'>No imports</div>"; return; }
+    el.innerHTML = "<ul>" + outgoing.map((e) => {
+      const t = graph!.nodes.find((n) => n.id === e.target);
+      return `<li data-id="${e.target}"><span style="color:${getKindColorHex(t?.kind)}">${t?.name || e.target}</span> <span style="color:#505070">${e.symbols.join(", ")}</span></li>`;
+    }).join("") + "</ul>";
+    bindInfoLinks(el);
+  } else if (tab === "usedby") {
+    if (incoming.length === 0) { el.innerHTML = "<div style='color:#505070'>Not used by any file</div>"; return; }
+    el.innerHTML = "<ul>" + incoming.map((e) => {
+      const s = graph!.nodes.find((n) => n.id === e.source);
+      return `<li data-id="${e.source}"><span style="color:${getKindColorHex(s?.kind)}">${s?.name || e.source}</span></li>`;
+    }).join("") + "</ul>";
+    bindInfoLinks(el);
+  } else if (tab === "exports") {
+    if (node.exports.length === 0) { el.innerHTML = "<div style='color:#505070'>No exports</div>"; return; }
+    el.innerHTML = "<ul>" + node.exports.map((exp) => `<li>${exp}</li>`).join("") + "</ul>";
+  }
+}
+
+function bindInfoLinks(el: HTMLElement) {
+  el.querySelectorAll("li[data-id]").forEach((li) => {
+    li.addEventListener("click", () => {
+      const id = (li as HTMLElement).dataset.id!;
+      const target = graph!.nodes.find((n) => n.id === id);
+      if (target) onNodeClick(target);
+    });
+  });
+}
+
+function getKindColorHex(kind?: string): string {
+  const colors: Record<string, string> = {
+    page: "#e94560", component: "#3a86c8", hook: "#8338ec", apiHook: "#06d6a0",
+    store: "#f77f00", util: "#4a6fa5", constant: "#6a6a8a", type: "#8a6a9a", dir: "#505070",
+  };
+  return colors[kind || ""] || "#a0a0c0";
 }
 
 // --- Minimap ---
