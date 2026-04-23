@@ -286,7 +286,7 @@ function updateVisibilityNow() {
   visNodes.forEach((vn) => {
     vn.label.visible = true;
     labelsShown++;
-    vn.label.scale.set(effectiveFontSize);
+    vn.label.parent.scale.set(effectiveFontSize);
     vn.circle.scale.set(nodeSizeMultiplier);
   });
 
@@ -664,37 +664,40 @@ function renderFolderTree(catKey: string, nodes: GraphNode[]) {
         fontWeight: dn.isDir ? "600" : "400",
       }),
     });
-    label.x = size + 5;
+
+    // Label container with background (scales together)
+    const labelContainer = new Container();
+    labelContainer.x = size + 5;
+    labelContainer.y = 0;
+
+    label.x = 0;
     label.anchor.set(0, 0.5);
     label.y = 0;
 
-    // Background behind label to cover lines
-    const labelBg = new Graphics();
-    const pad = 2;
-    // Measure after adding to get bounds
-    cont.addChild(label);
-    const bounds = label.getBounds();
-    labelBg.rect(label.x - pad, -bounds.height / 2 - pad, bounds.width + pad * 2, bounds.height + pad * 2);
-    labelBg.fill({ color: 0x111128, alpha: 1 });
-    // Insert bg before label
-    cont.removeChild(label);
-    cont.addChild(labelBg);
-    cont.addChild(label);
+    labelContainer.addChild(label);
 
-    label.eventMode = "static";
-    label.cursor = "pointer";
-    label.on("pointerover", () => {
+    // Measure and add background
+    const bounds = label.getLocalBounds();
+    const pad = 3;
+    const labelBg = new Graphics();
+    labelBg.rect(-pad, bounds.y - pad, bounds.width + pad * 2, bounds.height + pad * 2);
+    labelBg.fill({ color: 0x111128 });
+    labelContainer.addChildAt(labelBg, 0); // bg behind text
+
+    labelContainer.eventMode = "static";
+    labelContainer.cursor = "pointer";
+    labelContainer.on("pointerover", () => {
       const vn = visNodes.get(dn.id);
       if (vn) highlightHover(vn.id);
     });
-    label.on("pointerout", () => {
+    labelContainer.on("pointerout", () => {
       clearHover();
     });
-    label.on("pointerdown", (e) => {
+    labelContainer.on("pointerdown", (e) => {
       e.stopPropagation();
       if (dn.node) onNodeClick(dn.node);
     });
-    cont.addChild(label);
+    cont.addChild(labelContainer);
 
     nodeLayer.addChild(cont);
 
@@ -736,7 +739,7 @@ function renderFolderTree(catKey: string, nodes: GraphNode[]) {
   currentZoneIndex = zi;
   visNodes.forEach((vn) => {
     vn.circle.scale.set(nodeSizeMultiplier);
-    vn.label.scale.set(fontSizeMultiplier);
+    vn.label.parent.scale.set(fontSizeMultiplier);
   });
   // Update zone display
   const zoneEl = document.getElementById("val-zone");
@@ -1034,7 +1037,7 @@ function setupSettings() {
   });
   bind("slider-fsize", "val-fsize", (v) => {
     fontSizeMultiplier = v;
-    visNodes.forEach((vn) => { vn.label.scale.set(v); });
+    visNodes.forEach((vn) => { vn.label.parent.scale.set(v); });
   });
   document.getElementById("toggle-edges")!.addEventListener("change", (e) => {
     edgesOnZoom = (e.target as HTMLInputElement).checked;
