@@ -644,7 +644,9 @@ function renderFolderTree(catKey: string, nodes: GraphNode[]) {
 
     circle.on("pointerdown", (e) => {
       e.stopPropagation();
-      if (dn.node) onNodeClick(dn.node);
+    });
+    circle.on("pointerup", () => {
+      if (!canvasDragging && dn.node) onNodeClick(dn.node);
     });
 
     circle.on("pointerover", () => {
@@ -698,7 +700,9 @@ function renderFolderTree(catKey: string, nodes: GraphNode[]) {
     });
     labelContainer.on("pointerdown", (e) => {
       e.stopPropagation();
-      if (dn.node) onNodeClick(dn.node);
+    });
+    labelContainer.on("pointerup", () => {
+      if (!canvasDragging && dn.node) onNodeClick(dn.node);
     });
     cont.addChild(labelContainer);
 
