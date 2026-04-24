@@ -302,7 +302,7 @@ fn build_graph(root: &Path) -> ProjectGraph {
         // Rebuild edges for changed files
         for (path, info) in &new_parsed {
             let rel_path = path.strip_prefix(root).unwrap_or(path);
-            let source_id = rel_path.to_string_lossy().to_string();
+            let source_id = path.to_string_lossy().to_string();
             build_edges_for_file(&source_id, path, info, root, &canon_root, &graph.file_index, &graph.nodes, &mut graph.edges, &alias_paths);
         }
 
@@ -353,7 +353,7 @@ fn build_graph(root: &Path) -> ProjectGraph {
     // Debug: print sample file_index keys
     for (path, info) in &all_parsed {
         let rel_path = path.strip_prefix(root).unwrap_or(path);
-        let source_id = rel_path.to_string_lossy().to_string();
+        let source_id = path.to_string_lossy().to_string();
         build_edges_for_file(&source_id, path, info, root, &canon_root, &file_index, &graph.nodes, &mut graph.edges, &alias_paths);
     }
 
@@ -377,7 +377,8 @@ fn build_graph(root: &Path) -> ProjectGraph {
 
 fn build_node(root: &Path, path: &Path, info: &parser::FileInfo) -> GraphNode {
     let rel_path = path.strip_prefix(root).unwrap_or(path);
-    let id = rel_path.to_string_lossy().to_string();
+    // Use absolute path as id for consistent edge matching
+    let id = path.to_string_lossy().to_string();
 
     let file_stem = path.file_stem().unwrap_or_default().to_string_lossy().to_string();
     let name = if file_stem == "index" {
@@ -418,11 +419,8 @@ fn build_edges_for_file(
     // Import edges only — store access is already captured via imports
     for import in &info.imports {
         if let Some(resolved) = resolve_import(&import.source, path, root, alias_paths) {
-            // resolved is canonicalized (absolute), convert to relative for file_index match
-            let target_rel = resolved.strip_prefix(canon_root)
-                .or_else(|_| resolved.strip_prefix(root))
-                .unwrap_or(&resolved);
-            let target_id = target_rel.to_string_lossy().to_string();
+            // resolved is canonicalized, strip canon_root to match file_index keys
+            let target_id = resolved.to_string_lossy().to_string();
             if file_index.contains_key(&target_id) {
                 edges.push(GraphEdge {
                     source: source_id.to_string(),
