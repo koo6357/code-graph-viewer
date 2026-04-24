@@ -943,13 +943,13 @@ function highlightConnections(nodeId: string) {
     });
   }
 
-  // Draw import edges for focused node only
+  // Draw used-by edges (who imports this node)
   if (importEdgeGfx && graph) {
     importEdgeGfx.clear();
-    graph.edges.filter((e) => e.source === nodeId || e.target === nodeId).forEach((edge) => {
+    graph.edges.filter((e) => e.target === nodeId).forEach((edge) => {
       const from = visNodes.get(edge.source);
       const to = visNodes.get(edge.target);
-      if (!from || !to || from.isDir || to.isDir) return;
+      if (!from || !to) return;
 
       const dx = to.x - from.x;
       const dy = to.y - from.y;
@@ -1189,8 +1189,8 @@ function updateCodeInfo(node: GraphNode) {
   currentInfoNode = node;
   // Default to api tab
   document.querySelectorAll(".code-info-tab").forEach((t) => t.classList.remove("active"));
-  document.querySelector('.code-info-tab[data-tab="imports"]')!.classList.add("active");
-  renderCodeInfoTab("imports", node);
+  document.querySelector('.code-info-tab[data-tab="usedby"]')!.classList.add("active");
+  renderCodeInfoTab("usedby", node);
 }
 
 function renderCodeInfoTab(tab: string, node: GraphNode) {
@@ -1208,13 +1208,6 @@ function renderCodeInfoTab(tab: string, node: GraphNode) {
       <div><span style="color:#606080">Path:</span> ${relPath}</div>
       <div><span style="color:#606080">Imports:</span> ${outgoing.length} · <span style="color:#606080">Used by:</span> ${incoming.length} · <span style="color:#606080">Exports:</span> ${node.exports.length}</div>
     `;
-  } else if (tab === "imports") {
-    if (outgoing.length === 0) { el.innerHTML = "<div style='color:#505070'>No imports</div>"; return; }
-    el.innerHTML = "<ul>" + outgoing.map((e) => {
-      const t = graph!.nodes.find((n) => n.id === e.target);
-      return `<li data-id="${e.target}"><span style="color:${getKindColorHex(t?.kind)}">${t?.name || e.target}</span> <span style="color:#505070">${e.symbols.join(", ")}</span></li>`;
-    }).join("") + "</ul>";
-    bindInfoLinks(el);
   } else if (tab === "usedby") {
     if (incoming.length === 0) { el.innerHTML = "<div style='color:#505070'>Not used by any file</div>"; return; }
     el.innerHTML = "<ul>" + incoming.map((e) => {
