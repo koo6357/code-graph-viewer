@@ -630,9 +630,11 @@ function renderFolderTree(catKey: string, nodes: GraphNode[]) {
 
   // Edges at bottom, nodes on top
   treeEdgeGfx = new Graphics();
+  importEdgeGfx = new Graphics();
   const nodeLayer = new Container();
 
   world.addChild(treeEdgeGfx);
+  world.addChild(importEdgeGfx);
   world.addChild(nodeLayer);
 
   // Create visual nodes
@@ -831,6 +833,7 @@ function clearHighlight() {
     vn.label.alpha = 1;
     (vn.label.style as TextStyle).fill = vn.isDir ? 0x8080a0 : 0xb0b0d0;
   });
+  if (importEdgeGfx) importEdgeGfx.clear();
   redrawEdges();
 }
 
@@ -892,7 +895,7 @@ function clearHover() {
 }
 
 function highlightConnections(nodeId: string) {
-  if (!graph || !importEdgeGfx) return;
+  if (!graph) return;
   focusedId = nodeId;
 
   const connected = new Set<string>([nodeId]);
@@ -937,6 +940,29 @@ function highlightConnections(nodeId: string) {
       if (!parent) return;
       const isConn = connected.has(v.id) && connected.has(v.parentId!);
       drawTreeEdge(v, parent, isConn ? 0x5BA0D0 : 0xffffff, isConn ? 0.6 : 0.08, isConn ? 1.5 : 1);
+    });
+  }
+
+  // Draw import edges for focused node only
+  if (importEdgeGfx && graph) {
+    importEdgeGfx.clear();
+    graph.edges.filter((e) => e.source === nodeId || e.target === nodeId).forEach((edge) => {
+      const from = visNodes.get(edge.source);
+      const to = visNodes.get(edge.target);
+      if (!from || !to || from.isDir || to.isDir) return;
+
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const mx = (from.x + to.x) / 2;
+      const my = (from.y + to.y) / 2;
+      const curvature = Math.min(dist * 0.15, 40);
+      const cpx = mx + (-dy / dist) * curvature;
+      const cpy = my + (dx / dist) * curvature;
+
+      importEdgeGfx!.moveTo(from.x, from.y);
+      importEdgeGfx!.quadraticCurveTo(cpx, cpy, to.x, to.y);
+      importEdgeGfx!.stroke({ width: 1.5, color: 0x5BA0D0, alpha: 0.6 });
     });
   }
 
