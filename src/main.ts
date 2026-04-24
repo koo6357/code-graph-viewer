@@ -309,13 +309,22 @@ async function openProjectPath(path: string) {
 }
 
 // --- Categories ---
+// Helper: convert absolute node id to relative path for display
+function relId(id: string): string {
+  if (graph && id.startsWith(graph.rootPath)) {
+    return id.slice(graph.rootPath.length + 1);
+  }
+  return id;
+}
+
 function renderCategoryList() {
   if (!graph) return;
 
   // Build 3-level tree: group / category / sub-folder
   const catMap = new Map<string, GraphNode[]>();
   graph.nodes.forEach((n) => {
-    const parts = n.id.split("/");
+    const rel = relId(n.id);
+    const parts = rel.split("/");
     const key = parts.length > 1 ? `${parts[0]}/${parts[1]}` : parts[0];
     if (!catMap.has(key)) catMap.set(key, []);
     catMap.get(key)!.push(n);
@@ -388,7 +397,8 @@ function buildSubFolders(catKey: string, nodes: GraphNode[], container: HTMLElem
   const tree = new Map<string, { nodes: GraphNode[]; children: Map<string, any> }>();
 
   nodes.forEach((n) => {
-    const rel = n.id.startsWith(catKey + "/") ? n.id.slice(catKey.length + 1) : n.id;
+    const nRel = relId(n.id);
+    const rel = nRel.startsWith(catKey + "/") ? nRel.slice(catKey.length + 1) : nRel;
     const parts = rel.split("/");
     if (parts.length <= 1) return; // root-level file, skip
 
@@ -527,7 +537,8 @@ function buildDirTree(nodes: GraphNode[], catKey: string): DirNode {
 
   const sorted = [...nodes].sort((a, b) => a.id.localeCompare(b.id));
   sorted.forEach((node) => {
-    const rel = catKey && node.id.startsWith(catKey + "/") ? node.id.slice(catKey.length + 1) : node.id;
+    const nodeRel = relId(node.id);
+    const rel = catKey && nodeRel.startsWith(catKey + "/") ? nodeRel.slice(catKey.length + 1) : nodeRel;
     const parts = rel.split("/");
 
     let path = "";
@@ -1428,7 +1439,7 @@ function setupSearch() {
     searchResults = [];
     const isPathSearch = query.includes("/") || query.includes(".ts");
     visNodes.forEach((vn) => {
-      const target = isPathSearch ? vn.id.toLowerCase() : vn.name.toLowerCase();
+      const target = isPathSearch ? relId(vn.id).toLowerCase() : vn.name.toLowerCase();
       if (target.includes(query)) {
         searchResults.push(vn);
       }
@@ -1569,7 +1580,7 @@ function showSearchResultsList(results: VisNode[], activeIdx: number) {
       item.style.right = "0";
       item.style.height = ITEM_H + "px";
       item.dataset.idx = String(i);
-      item.innerHTML = `<span class="search-result-name">${vn.name}</span><span class="search-result-path">${vn.id}</span>`;
+      item.innerHTML = `<span class="search-result-name">${vn.name}</span><span class="search-result-path">${relId(vn.id)}</span>`;
       item.addEventListener("click", () => {
         searchIndex = i;
         document.getElementById("search-info")!.textContent = `${i + 1} / ${results.length}`;
