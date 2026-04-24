@@ -576,6 +576,7 @@ let fontSizeMultiplier = 1.8;
 let depthOverride = 99;
 let edgesOnZoom = true;
 let edgeDebounce: ReturnType<typeof setTimeout> | null = null;
+let showPackages = true;
 
 function layoutTree(dir: DirNode, x: number, yStart: number): { nodes: Array<{ dn: DirNode; x: number; y: number }>; height: number } {
   const result: Array<{ dn: DirNode; x: number; y: number }> = [];
@@ -614,7 +615,19 @@ function renderFolderTree(catKey: string, nodes: GraphNode[]) {
   world.removeChildren();
   visNodes.clear();
 
-  const tree = buildDirTree(nodes, catKey);
+  // Include packages nodes if toggle on and not already showing all
+  let allNodes = nodes;
+  if (showPackages && catKey !== "" && graph) {
+    const packageNodes = graph.nodes.filter((n) => {
+      const rel = relId(n.id);
+      return rel.startsWith("packages/") && !nodes.includes(n);
+    });
+    if (packageNodes.length > 0) {
+      allNodes = [...nodes, ...packageNodes];
+    }
+  }
+
+  const tree = buildDirTree(allNodes, catKey || "");
   const layout = layoutTree(tree, 50, 50);
 
   // Edges at bottom, nodes on top
@@ -1046,6 +1059,13 @@ function setupSettings() {
   });
   document.getElementById("toggle-edges")!.addEventListener("change", (e) => {
     edgesOnZoom = (e.target as HTMLInputElement).checked;
+  });
+
+  document.getElementById("toggle-packages")!.addEventListener("change", (e) => {
+    showPackages = (e.target as HTMLInputElement).checked;
+    if (lastRenderedNodes.length > 0) {
+      renderFolderTree(lastRenderedCatKey, lastRenderedNodes);
+    }
   });
 
   document.getElementById("save-settings")!.addEventListener("click", () => {
