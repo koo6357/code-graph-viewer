@@ -134,7 +134,6 @@ fn resolve_import(source: &str, from_file: &Path, root: &Path, alias_paths: &Has
         let resolved = dir.join(source);
         let result = try_resolve_file(&resolved);
         if result.is_none() {
-            eprintln!("[resolve] FAIL relative: {} from {}", source, from_file.display());
         }
         return result;
     }
@@ -159,11 +158,9 @@ fn resolve_import(source: &str, from_file: &Path, root: &Path, alias_paths: &Has
                 PathBuf::from(target_base).join(rest)
             };
             if let Some(resolved) = try_resolve_file(&candidate) {
-                eprintln!("[resolve] OK tsconfig: {} → {}", source, resolved.display());
                 return Some(resolved);
             }
         }
-        eprintln!("[resolve] FAIL tsconfig: {} (alias={}, targets={:?})", source, alias, targets);
     }
 
     // Monorepo: try node_modules symlink resolve
@@ -200,19 +197,14 @@ fn resolve_import(source: &str, from_file: &Path, root: &Path, alias_paths: &Has
                 if let Some(resolved) = try_resolve_file(candidate) {
                     // Ensure resolved path is under root
                     if resolved.starts_with(root) {
-                        eprintln!("[resolve] OK monorepo: {} → {}", source, resolved.display());
                         return Some(resolved);
                     } else {
-                        eprintln!("[resolve] SKIP monorepo (outside root): {} → {}", source, resolved.display());
                     }
                 }
             }
-            eprintln!("[resolve] FAIL monorepo: {} (tried {:?})", source, candidates);
         } else {
-            eprintln!("[resolve] FAIL monorepo: {} (pkg not found: {})", source, pkg_link.display());
         }
     } else {
-        eprintln!("[resolve] SKIP: {} (not relative, not @scoped)", source);
     }
 
     None
@@ -223,7 +215,8 @@ fn try_resolve_file(base: &Path) -> Option<PathBuf> {
     for ext in &extensions {
         let candidate = PathBuf::from(format!("{}{}", base.display(), ext));
         if candidate.exists() {
-            return Some(candidate);
+            // Canonicalize to resolve .. and symlinks
+            return std::fs::canonicalize(&candidate).ok();
         }
     }
     None
@@ -232,6 +225,8 @@ fn try_resolve_file(base: &Path) -> Option<PathBuf> {
 /// Build the full project graph (with cache support)
 fn build_graph(root: &Path) -> ProjectGraph {
     let files = scanner::scan_project(root);
+    // Canonicalize root for consistent path comparison
+    let canon_root = std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
     let root_str = root.to_string_lossy().to_string();
     let alias_paths = load_tsconfig_paths(root);
     eprintln!("[tsconfig] loaded {} path aliases", alias_paths.len());
@@ -308,7 +303,7 @@ fn build_graph(root: &Path) -> ProjectGraph {
         for (path, info) in &new_parsed {
             let rel_path = path.strip_prefix(root).unwrap_or(path);
             let source_id = rel_path.to_string_lossy().to_string();
-            build_edges_for_file(&source_id, path, info, root, &graph.file_index, &graph.nodes, &mut graph.edges, &alias_paths);
+            build_edges_for_file(&source_id, path, info, root, &canon_root, &graph.file_index, &graph.nodes, &mut graph.edges, &alias_paths);
         }
 
         // Update mtime cache
@@ -355,10 +350,11 @@ fn build_graph(root: &Path) -> ProjectGraph {
 
     // Create edges
     let file_index = graph.file_index.clone();
+    // Debug: print sample file_index keys
     for (path, info) in &all_parsed {
         let rel_path = path.strip_prefix(root).unwrap_or(path);
         let source_id = rel_path.to_string_lossy().to_string();
-        build_edges_for_file(&source_id, path, info, root, &file_index, &graph.nodes, &mut graph.edges, &alias_paths);
+        build_edges_for_file(&source_id, path, info, root, &canon_root, &file_index, &graph.nodes, &mut graph.edges, &alias_paths);
     }
 
     // Save cache
@@ -413,6 +409,7 @@ fn build_edges_for_file(
     path: &Path,
     info: &parser::FileInfo,
     root: &Path,
+    canon_root: &Path,
     file_index: &HashMap<String, String>,
     _nodes: &[GraphNode],
     edges: &mut Vec<GraphEdge>,
@@ -421,8 +418,8 @@ fn build_edges_for_file(
     // Import edges only — store access is already captured via imports
     for import in &info.imports {
         if let Some(resolved) = resolve_import(&import.source, path, root, alias_paths) {
-            let target_rel = resolved.strip_prefix(root).unwrap_or(&resolved);
-            let target_id = target_rel.to_string_lossy().to_string();
+            // resolved is canonicalized, strip canon_root to match file_index keys
+            let target_id = resolved.to_string_lossy().to_string();
             if file_index.contains_key(&target_id) {
                 edges.push(GraphEdge {
                     source: source_id.to_string(),
