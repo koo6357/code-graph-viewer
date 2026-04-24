@@ -145,11 +145,9 @@ async function init() {
     // Hide edges during zoom for performance (if toggle off)
     if (!edgesOnZoom) {
       if (treeEdgeGfx) treeEdgeGfx.visible = false;
-      if (importEdgeGfx) importEdgeGfx.visible = false;
       if (edgeDebounce) clearTimeout(edgeDebounce);
       edgeDebounce = setTimeout(() => {
         if (treeEdgeGfx) treeEdgeGfx.visible = true;
-        if (importEdgeGfx) importEdgeGfx.visible = true;
       }, 150);
     }
     updateVisibility();
@@ -632,12 +630,9 @@ function renderFolderTree(catKey: string, nodes: GraphNode[]) {
 
   // Edges at bottom, nodes on top
   treeEdgeGfx = new Graphics();
-  importEdgeGfx = new Graphics();
   const nodeLayer = new Container();
 
-  // Order matters: first added = behind
   world.addChild(treeEdgeGfx);
-  world.addChild(importEdgeGfx);
   world.addChild(nodeLayer);
 
   // Create visual nodes
@@ -801,42 +796,6 @@ function redrawEdges() {
       drawTreeEdge(vn, parent, 0xffffff, isTreeHover ? 0.4 : 0.2, isTreeHover ? 1.5 : 1);
     });
   }
-
-  // Import edges
-  if (importEdgeGfx && graph) {
-    importEdgeGfx.clear();
-    const nodeIds = new Set(Array.from(visNodes.keys()));
-    graph.edges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target)).forEach((edge) => {
-      const from = visNodes.get(edge.source);
-      const to = visNodes.get(edge.target);
-      if (!from || !to || from.isDir || to.isDir) return;
-
-      const dx = to.x - from.x;
-      const dy = to.y - from.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      const mx = (from.x + to.x) / 2;
-      const my = (from.y + to.y) / 2;
-      const curvature = Math.min(dist * 0.15, 40);
-      const cpx = mx + (-dy / dist) * curvature;
-      const cpy = my + (dx / dist) * curvature;
-
-      importEdgeGfx!.moveTo(from.x, from.y);
-      importEdgeGfx!.quadraticCurveTo(cpx, cpy, to.x, to.y);
-
-      const isHovered = hoveredId && (edge.source === hoveredId || edge.target === hoveredId);
-      importEdgeGfx!.stroke({
-        width: isHovered ? 1.5 : 0.6,
-        color: isHovered ? 0xffffff : 0x4a4a6a,
-        alpha: isHovered ? 0.7 : 0.12,
-      });
-    });
-  }
-
-  // Force z-order: edges behind nodes
-  if (world && treeEdgeGfx && importEdgeGfx) {
-    world.setChildIndex(treeEdgeGfx, 0);
-    world.setChildIndex(importEdgeGfx, 1);
-  }
 }
 
 function centerView() {
@@ -981,38 +940,6 @@ function highlightConnections(nodeId: string) {
     });
   }
 
-  // Redraw import edges with highlight
-  importEdgeGfx.clear();
-  const nodeIds = new Set(Array.from(visNodes.keys()));
-  graph.edges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target)).forEach((edge) => {
-    const from = visNodes.get(edge.source);
-    const to = visNodes.get(edge.target);
-    if (!from || !to || from.isDir || to.isDir) return;
-
-    const isHL = edge.source === nodeId || edge.target === nodeId;
-    const dx = to.x - from.x;
-    const dy = to.y - from.y;
-    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-    const mx = (from.x + to.x) / 2;
-    const my = (from.y + to.y) / 2;
-    const curvature = Math.min(dist * 0.15, 40);
-    const cpx = mx + (-dy / dist) * curvature;
-    const cpy = my + (dx / dist) * curvature;
-
-    importEdgeGfx!.moveTo(from.x, from.y);
-    importEdgeGfx!.quadraticCurveTo(cpx, cpy, to.x, to.y);
-    importEdgeGfx!.stroke({
-      width: isHL ? 1.5 : 0.4,
-      color: isHL ? 0x5BA0D0 : 0x3a3a5a,
-      alpha: isHL ? 0.7 : 0.03,
-    });
-  });
-
-  // Force z-order
-  if (world && treeEdgeGfx && importEdgeGfx) {
-    world.setChildIndex(treeEdgeGfx, 0);
-    world.setChildIndex(importEdgeGfx, 1);
-  }
 }
 
 function showStats() {
