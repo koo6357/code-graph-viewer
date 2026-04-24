@@ -1200,7 +1200,14 @@ function renderCodeInfoTab(tab: string, node: GraphNode) {
   const incoming = graph.edges.filter((e) => e.target === node.id);
   const outgoing = graph.edges.filter((e) => e.source === node.id);
 
-  if (tab === "imports") {
+  if (tab === "info") {
+    el.innerHTML = `
+      <div><span style="color:#606080">ID:</span> <span style="font-size:11px">${node.id}</span></div>
+      <div><span style="color:#606080">Kind:</span> <span style="color:${getKindColorHex(node.kind)}">${node.kind}</span></div>
+      <div><span style="color:#606080">Path:</span> ${relPath}</div>
+      <div><span style="color:#606080">Imports:</span> ${outgoing.length} · <span style="color:#606080">Used by:</span> ${incoming.length} · <span style="color:#606080">Exports:</span> ${node.exports.length}</div>
+    `;
+  } else if (tab === "imports") {
     if (outgoing.length === 0) { el.innerHTML = "<div style='color:#505070'>No imports</div>"; return; }
     el.innerHTML = "<ul>" + outgoing.map((e) => {
       const t = graph!.nodes.find((n) => n.id === e.target);
