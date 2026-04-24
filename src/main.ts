@@ -44,6 +44,7 @@ interface VisNode {
 }
 
 // --- Colors ---
+const DRAG_THRESHOLD = 5;
 const KIND_COLORS: Record<string, number> = {
   dir: 0x505070,
   page: 0xe94560,
@@ -647,9 +648,11 @@ function renderFolderTree(catKey: string, nodes: GraphNode[]) {
       e.stopPropagation();
       circleDownX = e.clientX;
       circleDownY = e.clientY;
+      console.log("[click] circle pointerdown", circleDownX, circleDownY);
     });
     circle.on("pointerup", (e) => {
       const dist = Math.sqrt((e.clientX - circleDownX) ** 2 + (e.clientY - circleDownY) ** 2);
+      console.log("[click] circle pointerup, dist:", dist, "clientX:", e.clientX, "clientY:", e.clientY);
       if (dist < DRAG_THRESHOLD && dn.node) onNodeClick(dn.node);
     });
 
@@ -707,9 +710,11 @@ function renderFolderTree(catKey: string, nodes: GraphNode[]) {
       e.stopPropagation();
       labelDownX = e.clientX;
       labelDownY = e.clientY;
+      console.log("[click] label pointerdown", labelDownX, labelDownY);
     });
     labelContainer.on("pointerup", (e) => {
       const dist = Math.sqrt((e.clientX - labelDownX) ** 2 + (e.clientY - labelDownY) ** 2);
+      console.log("[click] label pointerup, dist:", dist);
       if (dist < DRAG_THRESHOLD && dn.node) onNodeClick(dn.node);
     });
     cont.addChild(labelContainer);
