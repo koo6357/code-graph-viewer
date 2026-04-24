@@ -211,11 +211,10 @@ fn resolve_import(source: &str, from_file: &Path, root: &Path, alias_paths: &Has
 }
 
 fn try_resolve_file(base: &Path) -> Option<PathBuf> {
-    let extensions = ["", ".ts", ".tsx", "/index.ts", "/index.tsx"];
+    let extensions = [".ts", ".tsx", "/index.ts", "/index.tsx", ""];
     for ext in &extensions {
         let candidate = PathBuf::from(format!("{}{}", base.display(), ext));
-        if candidate.exists() {
-            // Canonicalize to resolve .. and symlinks
+        if candidate.exists() && candidate.is_file() {
             return std::fs::canonicalize(&candidate).ok();
         }
     }
@@ -418,7 +417,8 @@ fn build_edges_for_file(
 ) {
     // Import edges only — store access is already captured via imports
     for import in &info.imports {
-        if let Some(resolved) = resolve_import(&import.source, path, root, alias_paths) {
+        let resolved = resolve_import(&import.source, path, root, alias_paths);
+        if let Some(resolved) = resolved {
             // resolved is canonicalized, strip canon_root to match file_index keys
             let target_id = resolved.to_string_lossy().to_string();
             if file_index.contains_key(&target_id) {
