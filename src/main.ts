@@ -642,11 +642,15 @@ function renderFolderTree(catKey: string, nodes: GraphNode[]) {
     circle.eventMode = "static";
     circle.cursor = "pointer";
 
+    let circleDownX = 0, circleDownY = 0;
     circle.on("pointerdown", (e) => {
       e.stopPropagation();
+      circleDownX = e.clientX;
+      circleDownY = e.clientY;
     });
-    circle.on("pointerup", () => {
-      if (!canvasDragging && dn.node) onNodeClick(dn.node);
+    circle.on("pointerup", (e) => {
+      const dist = Math.sqrt((e.clientX - circleDownX) ** 2 + (e.clientY - circleDownY) ** 2);
+      if (dist < DRAG_THRESHOLD && dn.node) onNodeClick(dn.node);
     });
 
     circle.on("pointerover", () => {
@@ -698,11 +702,15 @@ function renderFolderTree(catKey: string, nodes: GraphNode[]) {
     labelContainer.on("pointerout", () => {
       clearHover();
     });
+    let labelDownX = 0, labelDownY = 0;
     labelContainer.on("pointerdown", (e) => {
       e.stopPropagation();
+      labelDownX = e.clientX;
+      labelDownY = e.clientY;
     });
-    labelContainer.on("pointerup", () => {
-      if (!canvasDragging && dn.node) onNodeClick(dn.node);
+    labelContainer.on("pointerup", (e) => {
+      const dist = Math.sqrt((e.clientX - labelDownX) ** 2 + (e.clientY - labelDownY) ** 2);
+      if (dist < DRAG_THRESHOLD && dn.node) onNodeClick(dn.node);
     });
     cont.addChild(labelContainer);
 
