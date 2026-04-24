@@ -539,7 +539,12 @@ pub fn run() {
                 .build()?;
 
             let edit_menu = SubmenuBuilder::new(app, "Edit")
+                .item(&PredefinedMenuItem::undo(app, None)?)
+                .item(&PredefinedMenuItem::redo(app, None)?)
+                .separator()
+                .item(&PredefinedMenuItem::cut(app, None)?)
                 .item(&PredefinedMenuItem::copy(app, None)?)
+                .item(&PredefinedMenuItem::paste(app, None)?)
                 .item(&PredefinedMenuItem::select_all(app, None)?)
                 .build()?;
 
