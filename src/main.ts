@@ -1243,9 +1243,20 @@ function bindInfoLinks(el: HTMLElement) {
     li.addEventListener("click", () => {
       const id = (li as HTMLElement).dataset.id!;
       const target = graph!.nodes.find((n) => n.id === id);
-      if (target) onNodeClick(target);
+      if (target) {
+        onNodeClick(target);
+        focusOnNode(id);
+      }
     });
   });
+}
+
+function focusOnNode(nodeId: string) {
+  const vn = visNodes.get(nodeId);
+  if (!vn || !app) return;
+  offX = app.screen.width / 2 - vn.x * scale;
+  offY = app.screen.height / 2 - vn.y * scale;
+  applyTransform();
 }
 
 function getKindColorHex(kind?: string): string {
